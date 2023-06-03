@@ -1,10 +1,12 @@
+import torch
 from torch import Tensor
 from torch import nn
 
 
 class LeNet5(nn.Module):
-    def __init__(self):
+    def __init__(self, config):
         super().__init__()
+        self.lr = config['train']['lr']
         self.sequential = nn.Sequential(
             nn.Conv2d(1, 6, kernel_size=5, padding=2), nn.Sigmoid(),
             nn.AvgPool2d(kernel_size=2, stride=2),
@@ -18,3 +20,9 @@ class LeNet5(nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:
         return self.sequential(x)
+
+    def loss_func(self):
+        return nn.CrossEntropyLoss()
+
+    def optim(self):
+        return torch.optim.SGD(self.parameters(), lr=self.lr)
