@@ -22,7 +22,7 @@ class Logger:
         Logger.__get_log_config(model_name)
         if 'file' in Logger.__desc and Logger.model_name is not None and Logger.time is not None:
             log_path = os.path.join(Logger.__log_base_dir,
-                                    model_name + '_' + time)
+                                    model_name, time)
             if not os.path.exists(log_path):
                 os.makedirs(log_path)
 

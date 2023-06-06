@@ -1,4 +1,6 @@
+import argparse
 import datetime
+import importlib
 import json
 import os
 
@@ -8,7 +10,6 @@ from torch import nn
 
 from d2l import torch as d2l
 from log import logger
-from models import LeNet5
 
 LOG = logger.Logger().get_logger()
 base_dir = os.path.dirname((os.path.abspath(__file__)))
@@ -18,8 +19,7 @@ date = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 checkpoint_path = None
 
 
-def parse_yml_config(model_name):
-    config_path = os.path.join(base_dir, 'modelsConfig', model_name + '.yml')
+def parse_yml_config(config_path):
     try:
         with open(config_path, 'r', encoding='utf-8') as f:
             return yaml.load(f, Loader=yaml.FullLoader)
@@ -115,9 +115,16 @@ def train(model):
 
 
 if __name__ == '__main__':
-    config = parse_yml_config(LeNet5.LeNet5.__name__)
-    logger.Logger.set(LeNet5.LeNet5.__name__, date)
-    checkpoint_path = os.path.join(config['checkpoint_path'], LeNet5.LeNet5.__name__, date)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-conf', '--config', required=True, help='config file')
+    args = parser.parse_args()
+    print(args)
+    config_file = args.config
+    config = parse_yml_config(config_file)
+    model_name = config['name']
+    logger.Logger.set(model_name, date)
+    checkpoint_path = os.path.join(config['checkpoint_path'], model_name, date)
     LOG.info('\n' + json.dumps(config, indent=4))
-    leNet5 = LeNet5.LeNet5(config)
-    train(leNet5)
+    module = importlib.import_module('models.' + model_name)
+    model = getattr(module, model_name)
+    train(model(config))
