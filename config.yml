@@ -1,3 +1,7 @@
 log:
+  log_base_dir: "/data/data1/model_log"
   file: "log.txt"
   desc: "file/console"
+
+model:
+  save_dir: "/data/data1/model_save"

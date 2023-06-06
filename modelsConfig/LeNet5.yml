@@ -2,4 +2,14 @@ train:
   batch_size: 256
   epochs: 20
   lr: 0.1
-  device: "cuda:0"
+  device: "cuda:1"
+
+log:
+  log_base_dir: "/data/data1/model_log"
+  desc: "file/console"
+  file: "log.txt"
+
+model:
+  save_dir: "/data/data1/model_save"
+
+checkpoint_path: "/data/data1/checkpoint"
