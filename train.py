@@ -17,6 +17,7 @@ TRAIN = 'train'
 config = None
 date = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 checkpoint_path = None
+model_name = None
 
 
 def parse_yml_config(config_path):
@@ -67,10 +68,17 @@ def train(model):
         if type(m) == nn.Linear or type(m) == nn.Conv2d:
             nn.init.xavier_uniform_(m.weight)
 
+    total = sum([param.nelement() for param in model.parameters()])
+    LOG.info(f'model: {model_name}, total_params={total / 1e6:.2f}M')
     batch_size = config[TRAIN]['batch_size']
     epochs = config[TRAIN]['epochs']
     device = config[TRAIN]['device']
-    train_iter, test_iter = d2l.load_data_fashion_mnist(batch_size)
+    train_iter = None
+    test_iter = None
+    if model_name == 'LeNet5':
+        train_iter, test_iter = d2l.load_data_fashion_mnist(batch_size)
+    elif model_name == 'AlexNet' or model_name == 'VGG11':
+        train_iter, test_iter = d2l.load_data_fashion_mnist(batch_size, resize=224)
     model.apply(init_weights)
     model.to(device)
     optimizer = model.optim()
