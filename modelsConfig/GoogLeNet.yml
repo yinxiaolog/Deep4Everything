@@ -1,10 +1,10 @@
-name: "NiN"
+name: "GoogLeNet"
 
 train:
   batch_size: 128
   epochs: 50
-  lr: 0.01
-  device: "cuda:1"
+  lr: 0.1
+  device: "cuda:0"
 
 log:
   log_base_dir: "/data/data1/model_log"

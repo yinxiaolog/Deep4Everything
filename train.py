@@ -79,6 +79,9 @@ def train(model):
         train_iter, test_iter = d2l.load_data_fashion_mnist(batch_size)
     elif model_name == 'AlexNet' or model_name == 'VGG11' or model_name == 'NiN':
         train_iter, test_iter = d2l.load_data_fashion_mnist(batch_size, resize=224)
+    elif model_name == 'GoogLeNet' or model_name == 'ResNet':
+        train_iter, test_iter = d2l.load_data_fashion_mnist(batch_size, resize=96)
+
     model.apply(init_weights)
     model.to(device)
     optimizer = model.optim()
