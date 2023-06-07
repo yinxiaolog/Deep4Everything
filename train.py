@@ -77,7 +77,7 @@ def train(model):
     test_iter = None
     if model_name == 'LeNet5':
         train_iter, test_iter = d2l.load_data_fashion_mnist(batch_size)
-    elif model_name == 'AlexNet' or model_name == 'VGG11':
+    elif model_name == 'AlexNet' or model_name == 'VGG11' or model_name == 'NiN':
         train_iter, test_iter = d2l.load_data_fashion_mnist(batch_size, resize=224)
     model.apply(init_weights)
     model.to(device)
