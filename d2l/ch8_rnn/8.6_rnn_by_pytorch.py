@@ -22,3 +22,4 @@ print(d2l.predict_ch8('time traveller', 10, net, vocab, device))
 
 num_epochs, lr = 500, 1
 d2l.train_ch8(net, train_iter, vocab, lr, num_epochs, device)
+d2l.plt.show()
