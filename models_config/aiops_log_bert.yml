@@ -1,0 +1,35 @@
+name: "aiops_log_bert"
+
+hyper_params:
+  batch_size: 128
+  epochs: 100
+  lr: 0.01
+  num_workers: 16 # num or auto: such 16 or auto
+  device: [ "cuda:0", "cuda:1" ] # cuda:1, cuda:2, auto
+  valid_ratio: 0.2
+  test_ratio: 0.2
+  max_len: 64
+  window_size: 10
+  masked_ratio: 0.15
+  layers: 12
+  ### transformer block
+  embedding_dim: 768
+  heads: 12
+  dropout: 0.2
+  ffn_hidden: 1024
+  mlm_hidden: 1024
+  nsp_hidden: 1024
+  ### transformer block
+
+log:
+  log_base_dir: "/data/data1/model_log"
+  desc: "file/console"
+  file: "log.txt"
+
+data:
+  data_path: "/data/data1/datasets/HDFS_1/"
+
+model:
+  save_dir: "/data/data1/model_save"
+
+checkpoint_path: "/data/data1/checkpoint"
