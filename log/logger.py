@@ -41,7 +41,7 @@ class Logger:
 
     @staticmethod
     def __get_log_config(model_name):
-        config_path = os.path.join(base_dir, 'modelsConfig', model_name + '.yml')
+        config_path = os.path.join(base_dir, 'models_config', model_name + '.yml')
         with open(config_path, 'r', encoding='utf-8') as f:
             config = yaml.load(f, Loader=yaml.FullLoader)
             Logger.__file = config['log']['file']
