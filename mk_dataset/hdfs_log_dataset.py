@@ -77,6 +77,7 @@ class _HdfsLogDataset(data.Dataset):
          self.all_pred_positions, self.all_mlm_weights,
          self.all_mlm_labels, self.nsp_labels) = pre.pad_bert_inputs(
             examples, self.max_len, self.vocab)
+        LOG.info(len(self.all_token_ids))
 
     def __len__(self):
         return len(self.all_token_ids)

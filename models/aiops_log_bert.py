@@ -41,9 +41,13 @@ class Train:
         self.config = config
         self.batch_size = config[HYPER_PARAMS][BATCH_SIZE]
         self.max_len = config[HYPER_PARAMS][MAX_LEN]
-        self.train_iter, self.vocab = hdfs_log_dataset.get_hdfs_log_test_abnormal(config)
+        #self.train_iter, self.vocab = hdfs_log_dataset.get_hdfs_log_test_abnormal(config)
+        self.train_iter, self.vocab = hdfs_log_dataset.get_hdfs_log_train_normal(config)
+        #self.train_iter, self.vocab = hdfs_log_dataset.get_hdfs_log_test_normal(config)
         config[HYPER_PARAMS][VOCAB_SIZE] = len(self.vocab)
+        LOG.error('net before')
         self.net = BertModel(config[HYPER_PARAMS])
+        LOG.error('net after')
         self.devices = config[HYPER_PARAMS][DEVICE]
         self.epochs = config[HYPER_PARAMS][EPOCHS]
 
@@ -61,7 +65,6 @@ class Train:
             blk_ids = re.findall(r'(blk_-?\d+)', vocab.idx_to_token[token_id])
             if len(blk_ids) > 0:
                 return blk_ids[0]
-        # LOG.debug('not find blk_id in token_ids')
         return ''
 
     def evaluate(self, net: nn.Module, dataset_iter, vocab):
@@ -72,7 +75,6 @@ class Train:
         log_seq_anomaly_count = defaultdict(int)
         with torch.no_grad():
             for tokens_x, segments_x, valid_lens_x, pred_positions_x, mlm_weights_x, mlm_Y, nsp_y in dataset_iter:
-                # LOG.info('batch')
                 tokens_x = tokens_x.to(devices[0])
                 segments_x = segments_x.to(devices[0])
                 valid_lens_x = valid_lens_x.to(devices[0])
@@ -101,7 +103,7 @@ class Train:
     def eval(self, net: nn.Module):
         data_iter, vocab = hdfs_log_dataset.get_hdfs_log_train_normal(self.config)
         tp, fn = self.evaluate(net, data_iter, vocab)
-        data_iter, vocab = hdfs_log_dataset.get_hdfs_log_test_abnormal(self.config)
+        data_iter, vocab = hdfs_log_dataset.get_hdfs_log_test_normal(self.config)
         fp, tn = self.evaluate(net, data_iter, vocab)
         precision = tp / (tp + fp)
         recall = tp / (tp + fn)
@@ -120,9 +122,9 @@ class Train:
         # 遮蔽语言模型损失的和，下一句预测任务损失的和，句子对的数量，计数
         metric = d2l.Accumulator(4)
         num_steps_reached = False
+        LOG.error("train_bert error")
         while step < self.epochs and not num_steps_reached:
-            for tokens_x, segments_x, valid_lens_x, pred_positions_x, \
-                    mlm_weights_x, mlm_Y, nsp_y in train_iter:
+            for tokens_x, segments_x, valid_lens_x, pred_positions_x, mlm_weights_x, mlm_Y, nsp_y in train_iter:
                 tokens_x = tokens_x.to(devices[0])
                 segments_x = segments_x.to(devices[0])
                 valid_lens_x = valid_lens_x.to(devices[0])
@@ -140,12 +142,12 @@ class Train:
                 timer.stop()
                 animator.add(step + 1, (metric[0] / metric[3], metric[1] / metric[3]))
                 step += 1
-                # self.eval(net)
                 net.train()
+                self.eval(net)
                 if step == self.epochs:
                     num_steps_reached = True
                     break
 
-                print(f'MLM loss {metric[0] / metric[3]:.3f}, NSP loss {metric[1] / metric[3]:.3f}')
-                print(f'{metric[2] / timer.sum():.1f} sentence pairs/sec on {str(devices)}')
+                LOG.info(f'MLM loss {metric[0] / metric[3]:.3f}, NSP loss {metric[1] / metric[3]:.3f}')
+                LOG.info(f'{metric[2] / timer.sum():.1f} sentence pairs/sec on {str(devices)}')
         d2l.plt.show()

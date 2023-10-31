@@ -80,6 +80,8 @@ def pad_bert_inputs(examples, max_len, vocab):
     token_ids_list, segments_list, valid_lens = [], [], []
     pred_positions_list, mlm_weights_list, mlm_labels_list = [], [], []
     nsp_labels = []
+    LOG.info(len(examples))
+    cnt = 0
     for mlm_tokens, positions, mlm_labels, segments, is_next in examples:
         token_ids_list.append(torch.tensor(mlm_tokens + [vocab[PAD]] * (max_len - len(mlm_tokens)), dtype=torch.long))
         segments_list.append(torch.tensor(segments + [0] * (max_len - len(segments)), dtype=torch.long))
@@ -88,4 +90,8 @@ def pad_bert_inputs(examples, max_len, vocab):
         mlm_weights_list.append(torch.tensor([1.0] * len(mlm_labels) + [0.0] * (max_masked - len(positions))))
         mlm_labels_list.append(torch.tensor(mlm_labels + [0] * (max_masked - len(mlm_labels)), dtype=torch.long))
         nsp_labels.append(torch.tensor(is_next, dtype=torch.long))
+        cnt += 1
+        if cnt > 10000:
+            LOG.info(cnt)
+            break
     return token_ids_list, segments_list, valid_lens, pred_positions_list, mlm_weights_list, mlm_labels_list, nsp_labels
