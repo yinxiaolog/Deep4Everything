@@ -3,7 +3,7 @@ import re
 from collections import defaultdict
 
 import pandas as pd
-from d2l import torch as d2l
+from d2l_ai import torch as d2l
 from torch.utils import data
 
 import utils.bert_dataset_pre as pre

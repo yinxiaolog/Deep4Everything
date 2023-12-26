@@ -3,7 +3,7 @@ from collections import defaultdict
 
 import torch
 import torch.nn.functional as F
-from d2l import torch as d2l
+from d2l_ai import torch as d2l
 from torch import nn
 
 from log import logger
