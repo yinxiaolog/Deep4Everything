@@ -1,0 +1,521 @@
+[2023-11-13 15:05:41,382] [INFO] [real_accelerator.py:158:get_accelerator] Setting ds_accelerator to cuda (auto detect)
+[2023-11-13 15:05:45,041] [INFO] [real_accelerator.py:158:get_accelerator] Setting ds_accelerator to cuda (auto detect)
+11/13 15:05:46 - mmengine - INFO - 
+------------------------------------------------------------
+System environment:
+    sys.platform: linux
+    Python: 3.11.5 (main, Sep 11 2023, 13:54:46) [GCC 11.2.0]
+    CUDA available: True
+    numpy_random_seed: 1557920599
+    GPU 0,1: NVIDIA A40
+    CUDA_HOME: /usr/local/cuda
+    NVCC: Cuda compilation tools, release 12.3, V12.3.52
+    GCC: gcc (Ubuntu 7.5.0-3ubuntu1~18.04) 7.5.0
+    PyTorch: 2.1.0+cu121
+    PyTorch compiling details: PyTorch built with:
+  - GCC 9.3
+  - C++ Version: 201703
+  - Intel(R) oneAPI Math Kernel Library Version 2022.2-Product Build 20220804 for Intel(R) 64 architecture applications
+  - Intel(R) MKL-DNN v3.1.1 (Git Hash 64f6bcbcbab628e96f33a62c3e975f8535a7bde4)
+  - OpenMP 201511 (a.k.a. OpenMP 4.5)
+  - LAPACK is enabled (usually provided by MKL)
+  - NNPACK is enabled
+  - CPU capability usage: AVX512
+  - CUDA Runtime 12.1
+  - NVCC architecture flags: -gencode;arch=compute_50,code=sm_50;-gencode;arch=compute_60,code=sm_60;-gencode;arch=compute_70,code=sm_70;-gencode;arch=compute_75,code=sm_75;-gencode;arch=compute_80,code=sm_80;-gencode;arch=compute_86,code=sm_86;-gencode;arch=compute_90,code=sm_90
+  - CuDNN 8.9.2
+  - Magma 2.6.1
+  - Build settings: BLAS_INFO=mkl, BUILD_TYPE=Release, CUDA_VERSION=12.1, CUDNN_VERSION=8.9.2, CXX_COMPILER=/opt/rh/devtoolset-9/root/usr/bin/c++, CXX_FLAGS= -D_GLIBCXX_USE_CXX11_ABI=0 -fabi-version=11 -fvisibility-inlines-hidden -DUSE_PTHREADPOOL -DNDEBUG -DUSE_KINETO -DLIBKINETO_NOROCTRACER -DUSE_FBGEMM -DUSE_QNNPACK -DUSE_PYTORCH_QNNPACK -DUSE_XNNPACK -DSYMBOLICATE_MOBILE_DEBUG_HANDLE -O2 -fPIC -Wall -Wextra -Werror=return-type -Werror=non-virtual-dtor -Werror=bool-operation -Wnarrowing -Wno-missing-field-initializers -Wno-type-limits -Wno-array-bounds -Wno-unknown-pragmas -Wno-unused-parameter -Wno-unused-function -Wno-unused-result -Wno-strict-overflow -Wno-strict-aliasing -Wno-stringop-overflow -Wno-psabi -Wno-error=pedantic -Wno-error=old-style-cast -Wno-invalid-partial-specialization -Wno-unused-private-field -Wno-aligned-allocation-unavailable -Wno-missing-braces -fdiagnostics-color=always -faligned-new -Wno-unused-but-set-variable -Wno-maybe-uninitialized -fno-math-errno -fno-trapping-math -Werror=format -Werror=cast-function-type -Wno-stringop-overflow, LAPACK_INFO=mkl, PERF_WITH_AVX=1, PERF_WITH_AVX2=1, PERF_WITH_AVX512=1, TORCH_DISABLE_GPU_ASSERTS=ON, TORCH_VERSION=2.1.0, USE_CUDA=ON, USE_CUDNN=ON, USE_EXCEPTION_PTR=1, USE_GFLAGS=OFF, USE_GLOG=OFF, USE_MKL=ON, USE_MKLDNN=ON, USE_MPI=OFF, USE_NCCL=1, USE_NNPACK=ON, USE_OPENMP=ON, USE_ROCM=OFF, 
+
+    TorchVision: 0.16.0+cu121
+    OpenCV: 4.8.1
+    MMEngine: 0.9.0
+
+Runtime environment:
+    cudnn_benchmark: False
+    mp_cfg: {'mp_start_method': 'fork', 'opencv_num_threads': 0}
+    dist_cfg: {'backend': 'nccl'}
+    seed: 1557920599
+    deterministic: False
+    Distributed launcher: none
+    Distributed training: False
+    GPU number: 1
+------------------------------------------------------------
+
+11/13 15:05:46 - mmengine - INFO - Config:
+accumulative_counts = 16
+alpaca_en = dict(
+    dataset=dict(
+        data_files=dict(
+            train=
+            '/data/yinxiaoln/datasets/muju/question-ans-v2/train/question-ans-train-v2.json'
+        ),
+        path='json',
+        type='datasets.load_dataset'),
+    dataset_map_fn='xtuner.dataset.map_fns.alpaca_map_fn',
+    max_length=2048,
+    pack_to_max_length=True,
+    remove_unused_columns=True,
+    shuffle_before_pack=True,
+    template_map_fn=dict(
+        template='xtuner.utils.PROMPT_TEMPLATE.baichuan2_chat',
+        type='xtuner.dataset.map_fns.template_map_fn_factory'),
+    tokenizer=dict(
+        padding_side='right',
+        pretrained_model_name_or_path=
+        '/data/yinxiaoln/pre_models/Baichuan2-7B-Chat',
+        trust_remote_code=True,
+        type='transformers.AutoTokenizer.from_pretrained'),
+    type='xtuner.dataset.process_hf_dataset')
+alpaca_en_path = '/data/yinxiaoln/datasets/muju/question-ans-v2/train/question-ans-train-v2.json'
+batch_size = 1
+betas = (
+    0.9,
+    0.999,
+)
+custom_hooks = [
+    dict(
+        tokenizer=dict(
+            padding_side='right',
+            pretrained_model_name_or_path=
+            '/data/yinxiaoln/pre_models/Baichuan2-7B-Chat',
+            trust_remote_code=True,
+            type='transformers.AutoTokenizer.from_pretrained'),
+        type='xtuner.engine.DatasetInfoHook'),
+    dict(
+        evaluation_inputs=[
+            '请给我介绍五个上海的景点',
+            'Please tell me five scenic spots in Shanghai',
+        ],
+        every_n_iters=500,
+        instruction=
+        'xtuner.utils.PROMPT_TEMPLATE.baichuan2_chat.INSTRUCTION_START',
+        tokenizer=dict(
+            padding_side='right',
+            pretrained_model_name_or_path=
+            '/data/yinxiaoln/pre_models/Baichuan2-7B-Chat',
+            trust_remote_code=True,
+            type='transformers.AutoTokenizer.from_pretrained'),
+        type='xtuner.engine.EvaluateChatHook'),
+]
+dataloader_num_workers = 0
+default_hooks = dict(
+    checkpoint=dict(interval=1, type='mmengine.hooks.CheckpointHook'),
+    logger=dict(interval=10, type='mmengine.hooks.LoggerHook'),
+    param_scheduler=dict(type='mmengine.hooks.ParamSchedulerHook'),
+    sampler_seed=dict(type='mmengine.hooks.DistSamplerSeedHook'),
+    timer=dict(type='mmengine.hooks.IterTimerHook'))
+env_cfg = dict(
+    cudnn_benchmark=False,
+    dist_cfg=dict(backend='nccl'),
+    mp_cfg=dict(mp_start_method='fork', opencv_num_threads=0))
+evaluation_freq = 500
+evaluation_inputs = [
+    '请给我介绍五个上海的景点',
+    'Please tell me five scenic spots in Shanghai',
+]
+launcher = 'none'
+load_from = None
+log_level = 'INFO'
+lr = 0.0002
+max_epochs = 10
+max_length = 2048
+max_norm = 1
+model = dict(
+    llm=dict(
+        pretrained_model_name_or_path=
+        '/data/yinxiaoln/pre_models/Baichuan2-7B-Chat',
+        quantization_config=dict(
+            bnb_4bit_compute_dtype='torch.float16',
+            bnb_4bit_quant_type='nf4',
+            bnb_4bit_use_double_quant=True,
+            llm_int8_has_fp16_weight=False,
+            llm_int8_threshold=6.0,
+            load_in_4bit=True,
+            load_in_8bit=False,
+            type='transformers.BitsAndBytesConfig'),
+        torch_dtype='torch.float16',
+        trust_remote_code=True,
+        type='transformers.AutoModelForCausalLM.from_pretrained'),
+    lora=dict(
+        bias='none',
+        lora_alpha=16,
+        lora_dropout=0.1,
+        r=64,
+        task_type='CAUSAL_LM',
+        type='peft.LoraConfig'),
+    type='xtuner.model.SupervisedFinetune')
+optim_type = 'bitsandbytes.optim.PagedAdamW32bit'
+optim_wrapper = dict(
+    accumulative_counts=16,
+    clip_grad=dict(error_if_nonfinite=False, max_norm=1),
+    dtype='float16',
+    loss_scale='dynamic',
+    optimizer=dict(
+        betas=(
+            0.9,
+            0.999,
+        ),
+        lr=0.0002,
+        type='bitsandbytes.optim.PagedAdamW32bit',
+        weight_decay=0),
+    type='mmengine.optim.AmpOptimWrapper')
+pack_to_max_length = True
+param_scheduler = dict(
+    T_max=10,
+    by_epoch=True,
+    convert_to_iter_based=True,
+    eta_min=2e-05,
+    type='mmengine.optim.CosineAnnealingLR')
+pretrained_model_name_or_path = '/data/yinxiaoln/pre_models/Baichuan2-7B-Chat'
+prompt_template = 'xtuner.utils.PROMPT_TEMPLATE.baichuan2_chat'
+randomness = dict(deterministic=False, seed=None)
+resume = False
+tokenizer = dict(
+    padding_side='right',
+    pretrained_model_name_or_path=
+    '/data/yinxiaoln/pre_models/Baichuan2-7B-Chat',
+    trust_remote_code=True,
+    type='transformers.AutoTokenizer.from_pretrained')
+train_cfg = dict(by_epoch=True, max_epochs=10, val_interval=1)
+train_dataloader = dict(
+    batch_size=1,
+    collate_fn=dict(type='xtuner.dataset.collate_fns.default_collate_fn'),
+    dataset=dict(
+        dataset=dict(
+            data_files=dict(
+                train=
+                '/data/yinxiaoln/datasets/muju/question-ans-v2/train/question-ans-train-v2.json'
+            ),
+            path='json',
+            type='datasets.load_dataset'),
+        dataset_map_fn='xtuner.dataset.map_fns.alpaca_map_fn',
+        max_length=2048,
+        pack_to_max_length=True,
+        remove_unused_columns=True,
+        shuffle_before_pack=True,
+        template_map_fn=dict(
+            template='xtuner.utils.PROMPT_TEMPLATE.baichuan2_chat',
+            type='xtuner.dataset.map_fns.template_map_fn_factory'),
+        tokenizer=dict(
+            padding_side='right',
+            pretrained_model_name_or_path=
+            '/data/yinxiaoln/pre_models/Baichuan2-7B-Chat',
+            trust_remote_code=True,
+            type='transformers.AutoTokenizer.from_pretrained'),
+        type='xtuner.dataset.process_hf_dataset'),
+    num_workers=0,
+    sampler=dict(shuffle=True, type='mmengine.dataset.DefaultSampler'))
+visualizer = None
+weight_decay = 0
+work_dir = '/data/yinxiaoln/save/'
+
+quantization_config convert to <class 'transformers.utils.quantization_config.BitsAndBytesConfig'>
+11/13 15:05:46 - mmengine - WARNING - Failed to search registry with scope "mmengine" in the "builder" registry tree. As a workaround, the current "builder" registry in "xtuner" is used to build instance. This may cause unexpected failure when running the built modules. Please check whether "mmengine" is a correct scope, or whether the registry is initialized.
+Xformers is not installed correctly. If you want to use memory_efficient_attention to accelerate training use the following command to install Xformers
+pip install xformers.
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:08<00:08,  8.75s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:12<00:00,  6.07s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:12<00:00,  6.47s/it]
+11/13 15:06:00 - mmengine - INFO - dispatch baichuan2 NormHead forward
+11/13 15:06:00 - mmengine - INFO - dispatch baichuan2-7B attn forward
+11/13 15:06:00 - mmengine - WARNING - Due to the implementation of the PyTorch version of flash attention, even when the `output_attentions` flag is set to True, it is not possible to return the `attn_weights`.
+11/13 15:06:00 - mmengine - INFO - dispatch baichuan2-13B attn forward
+11/13 15:06:44 - mmengine - INFO - Distributed training is not used, all SyncBatchNorm (SyncBN) layers in the model will be automatically reverted to BatchNormXd layers if they are used.
+11/13 15:06:45 - mmengine - INFO - Hooks will be executed in the following order:
+before_run:
+(VERY_HIGH   ) RuntimeInfoHook                    
+(NORMAL      ) DatasetInfoHook                    
+(BELOW_NORMAL) LoggerHook                         
+ -------------------- 
+before_train:
+(VERY_HIGH   ) RuntimeInfoHook                    
+(NORMAL      ) IterTimerHook                      
+(NORMAL      ) EvaluateChatHook                   
+(VERY_LOW    ) CheckpointHook                     
+ -------------------- 
+before_train_epoch:
+(VERY_HIGH   ) RuntimeInfoHook                    
+(NORMAL      ) IterTimerHook                      
+(NORMAL      ) DistSamplerSeedHook                
+ -------------------- 
+before_train_iter:
+(VERY_HIGH   ) RuntimeInfoHook                    
+(NORMAL      ) IterTimerHook                      
+ -------------------- 
+after_train_iter:
+(VERY_HIGH   ) RuntimeInfoHook                    
+(NORMAL      ) IterTimerHook                      
+(NORMAL      ) EvaluateChatHook                   
+(BELOW_NORMAL) LoggerHook                         
+(LOW         ) ParamSchedulerHook                 
+(VERY_LOW    ) CheckpointHook                     
+ -------------------- 
+after_train_epoch:
+(NORMAL      ) IterTimerHook                      
+(LOW         ) ParamSchedulerHook                 
+(VERY_LOW    ) CheckpointHook                     
+ -------------------- 
+before_val:
+(VERY_HIGH   ) RuntimeInfoHook                    
+ -------------------- 
+before_val_epoch:
+(NORMAL      ) IterTimerHook                      
+ -------------------- 
+before_val_iter:
+(NORMAL      ) IterTimerHook                      
+ -------------------- 
+after_val_iter:
+(NORMAL      ) IterTimerHook                      
+(BELOW_NORMAL) LoggerHook                         
+ -------------------- 
+after_val_epoch:
+(VERY_HIGH   ) RuntimeInfoHook                    
+(NORMAL      ) IterTimerHook                      
+(BELOW_NORMAL) LoggerHook                         
+(LOW         ) ParamSchedulerHook                 
+(VERY_LOW    ) CheckpointHook                     
+ -------------------- 
+after_val:
+(VERY_HIGH   ) RuntimeInfoHook                    
+(NORMAL      ) EvaluateChatHook                   
+ -------------------- 
+after_train:
+(VERY_HIGH   ) RuntimeInfoHook                    
+(VERY_LOW    ) CheckpointHook                     
+ -------------------- 
+before_test:
+(VERY_HIGH   ) RuntimeInfoHook                    
+ -------------------- 
+before_test_epoch:
+(NORMAL      ) IterTimerHook                      
+ -------------------- 
+before_test_iter:
+(NORMAL      ) IterTimerHook                      
+ -------------------- 
+after_test_iter:
+(NORMAL      ) IterTimerHook                      
+(BELOW_NORMAL) LoggerHook                         
+ -------------------- 
+after_test_epoch:
+(VERY_HIGH   ) RuntimeInfoHook                    
+(NORMAL      ) IterTimerHook                      
+(BELOW_NORMAL) LoggerHook                         
+ -------------------- 
+after_test:
+(VERY_HIGH   ) RuntimeInfoHook                    
+ -------------------- 
+after_run:
+(BELOW_NORMAL) LoggerHook                         
+ -------------------- 
+Found cached dataset json (/home/yinxiaoln/.cache/huggingface/datasets/json/default-2a2076e5e2533446/0.0.0/e347ab1c932092252e717ff3f949105a4dd28b27e842dd53157d2f72e276c2e4)
+  0%|          | 0/1 [00:00<?, ?it/s]100%|██████████| 1/1 [00:00<00:00, 728.68it/s]
+Loading cached processed dataset at /home/yinxiaoln/.cache/huggingface/datasets/json/default-2a2076e5e2533446/0.0.0/e347ab1c932092252e717ff3f949105a4dd28b27e842dd53157d2f72e276c2e4/cache-817222a3ff087594.arrow
+Loading cached processed dataset at /home/yinxiaoln/.cache/huggingface/datasets/json/default-2a2076e5e2533446/0.0.0/e347ab1c932092252e717ff3f949105a4dd28b27e842dd53157d2f72e276c2e4/cache-efe2e5113f9035af.arrow
+Loading cached processed dataset at /home/yinxiaoln/.cache/huggingface/datasets/json/default-2a2076e5e2533446/0.0.0/e347ab1c932092252e717ff3f949105a4dd28b27e842dd53157d2f72e276c2e4/cache-7868ac168b99dcee.arrow
+Flattening the indices:   0%|          | 0/5256 [00:00<?, ? examples/s]Flattening the indices: 100%|██████████| 5256/5256 [00:00<00:00, 50795.53 examples/s]                                                                                     Map:   0%|          | 0/5256 [00:00<?, ? examples/s]Map:  76%|███████▌  | 4000/5256 [00:00<00:00, 27837.22 examples/s]                                                                  11/13 15:06:46 - mmengine - WARNING - Dataset Dataset has no metainfo. ``dataset_meta`` in visualizer will be None.
+11/13 15:06:46 - mmengine - INFO - Num train samples 80
+11/13 15:06:46 - mmengine - INFO - train example:
+11/13 15:06:46 - mmengine - INFO - <s> <reserved_106>判断以下陈述是否正确。
+在我国，法律的制定与执行必须尊重和保障人权。<reserved_107>正确</s><s> <reserved_106>判断以下陈述是否正确。
+电火花加工必须采用脉冲电源。<reserved_107>正确</s><s> <reserved_106>回答下列问题
+工序尺寸及其公差计算时候要求工艺基准与设计基准（ ）。<reserved_107>重合</s><s> <reserved_106>回答下列问题
+镗削加工切削运动由刀具（ ）来实现<reserved_107>回转</s><s> <reserved_106>回答下列问题
+推杆最常用的材料是（ ）。<reserved_107>T10A</s><s> <reserved_106>回答下列问题
+在三投影面体系中，平面对投影面的相对位置有三种：投影面平行面、投影面垂直面和（ ）<reserved_107>一般位置平面</s><s> <reserved_106>判断以下陈述是否正确。
+用修配装配法，能降低制造零件的加工精度，使产品成本下降，故一般常用于公差要求较高的大批量生产。<reserved_107>错误</s><s> <reserved_106>回答下列问题
+冲裁模的工作零件是指（ ）等。<reserved_107>凸模;凹模</s><s> <reserved_106>判断以下陈述是否正确。
+电火花线切割加工是在模具工作零件（凸模.凹模）淬火前进行的<reserved_107>错误</s><s> <reserved_106>回答下列问题
+压注成型的压力比压缩成型的压力（ ）。<reserved_107>大</s><s> <reserved_106>判断以下陈述是否正确。
+电火花加工时，放电间隙如果过大，极间电压不能击穿介质，无法产生电火花。<reserved_107>正确</s><s> <reserved_106>回答下列问题
+以下属于划线主要工具的是（ ）<reserved_107>高度游标卡尺</s><s> <reserved_106>回答下列问题
+在光学曲线磨削过程中，判断工件余量是否去除的依据是（ ）。<reserved_107>工件图样放大对照结果</s><s> <reserved_106>判断以下陈述是否正确。
+圆柱体的长度可以是负值。<reserved_107>正确</s><s> <reserved_106>回答下列问题
+用于单件小批量生产的中小型狭长零件加工的刨床是（ ）<reserved_107>牛头刨床</s><s> <reserved_106>判断以下陈述是否正确。
+选择未经加工的毛坯表面作为定位基准，这种表面称为粗基准。<reserved_107>正确。</s><s> <reserved_106>回答下列问题
+光滑量规中的塞规是测量（ ）。<reserved_107>孔径尺寸</s><s> <reserved_106>判断以下陈述是否正确。
+零件的清理是清除零件上残存的铁锈，特别是要仔细清除小孔、沟槽等易存杂物的角落。<reserved_107>错误</s><s> <reserved_106>回答下列问题
+初步对位，在凹模刀口的周围放置与模具单边间隙值相同厚度的金属垫片，合模观察凸模是否顺利进入凹模且与垫片接触均匀，此方法称为（ ）。<reserved_107>垫片法</s><s> <reserved_106>回答下列问题
+（ ）在一定的范围内无需调整或稍加调整就可用于装夹不同的工件。这类夹具通常作为机床附件由专业厂生产，操作费时、生产率低，主要用于单件小批量生产。<reserved_107>通用夹具</s><s> <reserved_106>回答下列问题
+冲孔属于（ ）模。<reserved_107>冲裁</s><s> <reserved_106>回答下列问题
+导柱，导套装配方法一般有几种（ ）<reserved_107>二种</s><s> <reserved_106>回答下列问题
+钟面式百分表测量头的选用是：球形工件应选用平测量头，平面形的工件应选用（ ）。<reserved_107>球面测量头</s><s> <reserved_106>回答下列问题
+冲裁模试冲时之间有毛刺的原因可能是（ ）。<reserved_107>刃口不锋利或淬火硬度低;配合间隙过大或过小;间隙不均匀使冲件一边有显著带斜角毛刺</s><s> <reserved_106>判断以下陈述是否正确。
+合模机构都有确保模具按唯一方向合模的措施。<reserved_107>正确</s><s> <reserved_106>回答下列问题
+为了能测量0°~320°之间的任何角度，万能角度尺结构中的直尺和90°角尺可以移动和拆换。当测量角度在140°～230°范围内时，应（ ）。<reserved_107>装上角尺</s><s> <reserved_106>判断以下陈述是否正确。
+简单冲裁模可由多个凸凹模组成，在冲床的每次行程中则可完成不同种冲裁工序。<reserved_107>错误</s><s> <reserved_106>回答下列问题
+加工箱体类零件时常选用一面两孔作定位基准，这种方法一般符合（ ）。<reserved_107>基准重合原则</s><s> <reserved_106>判断以下陈述是否正确。
+钻中心孔时不宜选择较高的主轴转速。<reserved_107>错误</s><s> <reserved_106>回答下列问题
+螺纹的公称直径是指（ ）。<reserved_107>外螺纹顶径和内螺纹底径</s><s> <reserved_106>判断以下陈述是否正确。
+表面淬火主要有感应加热和火焰加热两种<reserved_107>正确</s><s> <reserved_106>判断以下陈述是否正确。
+调整压边圈结构，加大压边力是为了解决制品边缘折皱的问题<reserved_107>正确</s><s> <reserved_106>回答下列问题
+为以后的工序提供定位基准的阶段是（ ）。<reserved_107>粗加工阶段</s><s> <reserved_106>回答下列问题
+以下不属于慢走丝线切割加工特点的是（ ）。<reserved_107>电极丝损耗均布于参与工作的电极丝全长</s><s> <reserved_106>判断以下陈述是否正确。
+钢的淬透性是在规定的条件下决定零件淬硬度和表面硬度分布的特性<reserved_107>错误</s><s> <reserved_106>判断以下陈述是否正确。
+用三针法测量外螺纹中经时，不同牙型角和螺距的螺纹选用，其量针直径是不同的。<reserved_107>正确</s><s> <reserved_106>回答下列问题
+冲模安装前，应检查顶杆直径和长度是否适应压力机上的（ ）。<reserved_107>顶料机构</s><s> <reserved_106>回答下列问题
+液压马达在系统中将输入的压力能转换为旋转运动的（ ）而对外做工。<reserved_107>机械能</s><s> <reserved_106>判断以下陈述是否正确。
+刀具的磨损形式可分为刀具后刀面磨损和前刀面磨损两种。 <reserved_107>错误</s><s> <reserved_106>判断以下陈述是否正确。
+为了便于塑件脱模，一般情况下使塑料在开模时留在定模上。<reserved_107>错误。</s><s> <reserved_106>填入正确答案
+凸模的形式常见的有轴台式、（ ）等形式。<reserved_107>护套式</s><s> <reserved_106>判断以下陈述是否正确。
+刀具材料的硬度越高，强度和韧性越低。<reserved_107>正确。</s><s> <reserved_106>回答下列问题
+加工余量一般用字母（ ）来表示。<reserved_107>Z</s><s> <reserved_106>回答下列问题
+下列关于基孔制的描述中，（ ）是不正确的。<reserved_107>基准孔的基本偏差为上偏差</s><s> <reserved_106>回答下列问题
+（ ）精加工应使用油基类切削液。<reserved_107>不锈钢;铝</s><s> <reserved_106>回答下列问题
+能够在淬硬材料上加工φ3小孔的特种加工方法有（ ）。<reserved_107>电火花加工;超声波加工;光加工</s><s> <reserved_106>回答下列问题
+螺纹量规中的通端工作塞规是检验工件内螺纹的（ ）。<reserved_107>作用中径和大径</s><s> <reserved_106>回答下列问题
+由于凹模和下模座的漏料孔没有对正，凹模有倒锥度会造成（ ）<reserved_107>卸料不正常</s><s> <reserved_106>回答下列问题
+某组成环增大，其他组成环不变，使封闭环减小，则该环称为（ ）。<reserved_107>减环</s><s> <reserved_106>回答下列问题
+在冲裁模的凸模固定板与模座的固定连接装配中应（ ）。<reserved_107>先加工螺纹孔加工定位销孔</s><s> <reserved_106>判断以下陈述是否正确。
+电解加工型孔时，一般采用端部进给法，为了避免锥度阴极侧0必须绝缘。<reserved_107>正确。</s><s> <reserved_106>回答下列问题
+冲裁模的凸模，凹模，凸凹模属于（ ）<reserved_107>工作零件</s><s> <reserved_106>回答下列问题
+钳工所用的锉刀按其用途不同，可分为普通钳工锉 整形锉和（ ）锉三类。<reserved_107>异形</s><s> <reserved_106>判断以下陈述是否正确。
+分型面一般选在塑件外形最小轮廓处；尽量只采用一个与开模方向垂直的分型面。<reserved_107>错误</s><s> <reserved_106>判断以下陈述是否正确。
+工件材料强度和硬度较高时，为保证刀刃强度，应采取较小前角。<reserved_107>正确</s><s> <reserved_106>回答下列问题
+为避免塑料制品产生熔接痕，在设计模具时，要求在熔接处的外侧开一（ ）。<reserved_107>溢料槽</s><s> <reserved_106>回答下列问题
+加工路线的确定原则（ ）。<reserved_107>保证被加工工件的精度和表面粗糙度原则;加工路线最短，减少空行程原则;尽量简化数值计算工作量原则</s><s> <reserved_106>回答下列问题
+工具钳工常用的钻头是中心钻和（ ）钻两种。<reserved_107>扁</s><s> <reserved_106>判断以下陈述是否正确。
+螺旋槽铰刀有右旋和左旋之分。其中左旋槽铰刀适用于铰削通孔。<reserved_107>正确</s><s> <reserved_106>判断以下陈述是否正确。
+全面推进依法治国，是为全面深化改革、提高国家治理体系和治理能力现代化服务的。<reserved_107>正确</s><s> <reserved_106>回答下列问题
+冲裁模试冲时，冲裁时产生的侧向压力会使（ ）。<reserved_107>凸模折断</s><s> <reserved_106>回答下列问题
+冷却回路结构应便于清理，通道孔直径一般为（ ）mm。<reserved_107>8～12</s><s> <reserved_106>回答下列问题
+矫正主要用于（ ）好的材料。<reserved_107>塑性</s><s> <reserved_106>回答下列问题
+电焊和氩弧焊比较，（ ）的电弧比较稳定。<reserved_107>氩弧焊、氩弧焊</s><s> <reserved_106>回答下列问题
+数控铣圆时出现沿 45°方向的椭圆，有可能是（ ）。<reserved_107>参与铣圆的两插补轴 “增益” 不一致，导致动态跟随误差不一致</s><s><reserved_106>回答下列问题
+刚性压边装置适用于（ ）<reserved_107>
+11/13 15:06:46 - mmengine - INFO - before_train in EvaluateChatHook .
+11/13 15:06:52 - mmengine - INFO - Sample output:
+<reserved_106>请给我介绍五个上海的景点<reserved_107>当然可以！以下是五个上海著名的旅游景点：
+
+1. 外滩：外滩是上海最著名的景点之一，位于黄浦江畔，拥有独特的历史建筑群。这里可以欣赏到上海的地标性建筑，如东方明珠、上海
+
+11/13 15:06:57 - mmengine - INFO - Sample output:
+ <reserved_106>Please tell me five scenic spots in Shanghai<reserved_107>1. The Bund (Shanghai)
+2. The Oriental Pearl Tower (Shanghai)
+3. The People's Square (Shanghai)
+4. The Shanghai Aquarium (Shanghai)
+5. The Shanghai Science and Technology Museum (Shanghai)</s>
+
+11/13 15:06:57 - mmengine - WARNING - "FileClient" will be deprecated in future. Please use io functions in https://mmengine.readthedocs.io/en/latest/api/fileio.html#file-io
+11/13 15:06:57 - mmengine - WARNING - "HardDiskBackend" is the alias of "LocalBackend" and the former will be deprecated in future.
+11/13 15:06:57 - mmengine - INFO - Checkpoints will be saved to /data/yinxiaoln/save.
+/data/yinxiaoln/apps/miniconda3/envs/baichuan2/lib/python3.11/site-packages/torch/utils/checkpoint.py:429: UserWarning: torch.utils.checkpoint: please pass in use_reentrant=True or use_reentrant=False explicitly. The default value of use_reentrant will be updated to be False in the future. To maintain current behavior, pass use_reentrant=True. It is recommended that you use use_reentrant=False. Refer to docs for more details on the differences between the two variants.
+  warnings.warn(
+/data/yinxiaoln/apps/miniconda3/envs/baichuan2/lib/python3.11/site-packages/mmengine/optim/scheduler/param_scheduler.py:198: UserWarning: Detected call of `scheduler.step()` before `optimizer.step()`. In PyTorch 1.1.0 and later, you should call them in the opposite order: `optimizer.step()` before `scheduler.step()`. Failure to do this will result in PyTorch skipping the first value of the parameter value schedule. See more details at https://pytorch.org/docs/stable/optim.html#how-to-adjust-learning-rate
+  warnings.warn(
+11/13 15:08:08 - mmengine - INFO - Epoch(train)  [1][10/80]  lr: 1.9994e-04  eta: 1:32:33  time: 7.0301  data_time: 0.0040  memory: 13284  loss: 3.5372
+11/13 15:09:20 - mmengine - INFO - Epoch(train)  [1][20/80]  lr: 1.9975e-04  eta: 1:32:38  time: 7.2217  data_time: 0.0033  memory: 13286  loss: 3.3281  grad_norm: 1.5413
+11/13 15:10:30 - mmengine - INFO - Epoch(train)  [1][30/80]  lr: 1.9942e-04  eta: 1:30:58  time: 7.0141  data_time: 0.0032  memory: 13286  loss: 3.0341  grad_norm: 1.5413
+11/13 15:11:41 - mmengine - INFO - Epoch(train)  [1][40/80]  lr: 1.9895e-04  eta: 1:29:44  time: 7.0714  data_time: 0.0032  memory: 13286  loss: 2.8582  grad_norm: 1.1158
+11/13 15:12:52 - mmengine - INFO - Epoch(train)  [1][50/80]  lr: 1.9834e-04  eta: 1:28:31  time: 7.0730  data_time: 0.0032  memory: 13286  loss: 2.7674  grad_norm: 0.9030
+11/13 15:14:02 - mmengine - INFO - Epoch(train)  [1][60/80]  lr: 1.9760e-04  eta: 1:27:12  time: 7.0139  data_time: 0.0032  memory: 13286  loss: 2.7254  grad_norm: 0.9030
+11/13 15:15:12 - mmengine - INFO - Epoch(train)  [1][70/80]  lr: 1.9672e-04  eta: 1:26:01  time: 7.0742  data_time: 0.0032  memory: 13286  loss: 2.5938  grad_norm: 0.7883
+11/13 15:16:23 - mmengine - INFO - Exp name: bc2_7b_cqae3_20231113_150545
+11/13 15:16:23 - mmengine - INFO - Epoch(train)  [1][80/80]  lr: 1.9570e-04  eta: 1:24:51  time: 7.0699  data_time: 0.0031  memory: 13286  loss: 2.4590  grad_norm: 0.6865
+11/13 15:16:23 - mmengine - INFO - Saving checkpoint at 1 epochs
+/data/yinxiaoln/apps/miniconda3/envs/baichuan2/lib/python3.11/site-packages/torch/utils/checkpoint.py:429: UserWarning: torch.utils.checkpoint: please pass in use_reentrant=True or use_reentrant=False explicitly. The default value of use_reentrant will be updated to be False in the future. To maintain current behavior, pass use_reentrant=True. It is recommended that you use use_reentrant=False. Refer to docs for more details on the differences between the two variants.
+  warnings.warn(
+11/13 15:17:38 - mmengine - INFO - Epoch(train)  [2][10/80]  lr: 1.9456e-04  eta: 1:23:35  time: 7.0136  data_time: 0.0036  memory: 13286  loss: 2.4807  grad_norm: 0.6865
+11/13 15:18:49 - mmengine - INFO - Epoch(train)  [2][20/80]  lr: 1.9328e-04  eta: 1:22:30  time: 7.1456  data_time: 0.0033  memory: 13286  loss: 2.4427  grad_norm: 0.6275
+11/13 15:19:59 - mmengine - INFO - Epoch(train)  [2][30/80]  lr: 1.9188e-04  eta: 1:21:16  time: 7.0166  data_time: 0.0033  memory: 13286  loss: 2.3220  grad_norm: 0.6275
+11/13 15:21:10 - mmengine - INFO - Epoch(train)  [2][40/80]  lr: 1.9035e-04  eta: 1:20:06  time: 7.0748  data_time: 0.0033  memory: 13286  loss: 2.3645  grad_norm: 0.5745
+11/13 15:22:21 - mmengine - INFO - Epoch(train)  [2][50/80]  lr: 1.8870e-04  eta: 1:18:56  time: 7.0775  data_time: 0.0032  memory: 13286  loss: 2.4558  grad_norm: 0.5381
+11/13 15:23:31 - mmengine - INFO - Epoch(train)  [2][60/80]  lr: 1.8692e-04  eta: 1:17:42  time: 7.0155  data_time: 0.0032  memory: 13286  loss: 2.3472  grad_norm: 0.5381
+11/13 15:24:42 - mmengine - INFO - Epoch(train)  [2][70/80]  lr: 1.8503e-04  eta: 1:16:32  time: 7.0755  data_time: 0.0032  memory: 13286  loss: 2.3184  grad_norm: 0.5076
+11/13 15:25:52 - mmengine - INFO - Exp name: bc2_7b_cqae3_20231113_150545
+11/13 15:25:52 - mmengine - INFO - Epoch(train)  [2][80/80]  lr: 1.8302e-04  eta: 1:15:22  time: 7.0752  data_time: 0.0032  memory: 13286  loss: 2.2929  grad_norm: 0.4778
+11/13 15:25:52 - mmengine - INFO - Saving checkpoint at 2 epochs
+/data/yinxiaoln/apps/miniconda3/envs/baichuan2/lib/python3.11/site-packages/torch/utils/checkpoint.py:429: UserWarning: torch.utils.checkpoint: please pass in use_reentrant=True or use_reentrant=False explicitly. The default value of use_reentrant will be updated to be False in the future. To maintain current behavior, pass use_reentrant=True. It is recommended that you use use_reentrant=False. Refer to docs for more details on the differences between the two variants.
+  warnings.warn(
+11/13 15:27:06 - mmengine - INFO - Epoch(train)  [3][10/80]  lr: 1.8090e-04  eta: 1:14:10  time: 7.0208  data_time: 0.0035  memory: 13286  loss: 2.3071  grad_norm: 0.4778
+11/13 15:28:17 - mmengine - INFO - Epoch(train)  [3][20/80]  lr: 1.7867e-04  eta: 1:13:02  time: 7.1483  data_time: 0.0032  memory: 13286  loss: 2.2376  grad_norm: 0.3406
+11/13 15:29:27 - mmengine - INFO - Epoch(train)  [3][30/80]  lr: 1.7633e-04  eta: 1:11:50  time: 7.0174  data_time: 0.0032  memory: 13286  loss: 2.2222  grad_norm: 0.3406
+11/13 15:30:38 - mmengine - INFO - Epoch(train)  [3][40/80]  lr: 1.7389e-04  eta: 1:10:39  time: 7.0759  data_time: 0.0031  memory: 13286  loss: 2.1866  grad_norm: 0.2875
+11/13 15:31:49 - mmengine - INFO - Epoch(train)  [3][50/80]  lr: 1.7135e-04  eta: 1:09:29  time: 7.0766  data_time: 0.0031  memory: 13286  loss: 2.1264  grad_norm: 0.2542
+11/13 15:32:59 - mmengine - INFO - Epoch(train)  [3][60/80]  lr: 1.6872e-04  eta: 1:08:17  time: 7.0134  data_time: 0.0031  memory: 13286  loss: 2.2741  grad_norm: 0.2542
+11/13 15:34:10 - mmengine - INFO - Epoch(train)  [3][70/80]  lr: 1.6600e-04  eta: 1:07:07  time: 7.0815  data_time: 0.0031  memory: 13286  loss: 2.2866  grad_norm: 0.2262
+11/13 15:35:21 - mmengine - INFO - Exp name: bc2_7b_cqae3_20231113_150545
+11/13 15:35:21 - mmengine - INFO - Epoch(train)  [3][80/80]  lr: 1.6319e-04  eta: 1:05:56  time: 7.0858  data_time: 0.0031  memory: 13286  loss: 2.1210  grad_norm: 0.2134
+11/13 15:35:21 - mmengine - INFO - Saving checkpoint at 3 epochs
+/data/yinxiaoln/apps/miniconda3/envs/baichuan2/lib/python3.11/site-packages/torch/utils/checkpoint.py:429: UserWarning: torch.utils.checkpoint: please pass in use_reentrant=True or use_reentrant=False explicitly. The default value of use_reentrant will be updated to be False in the future. To maintain current behavior, pass use_reentrant=True. It is recommended that you use use_reentrant=False. Refer to docs for more details on the differences between the two variants.
+  warnings.warn(
+11/13 15:36:34 - mmengine - INFO - Epoch(train)  [4][10/80]  lr: 1.6029e-04  eta: 1:04:45  time: 7.0165  data_time: 0.0035  memory: 13286  loss: 2.1858  grad_norm: 0.2134
+11/13 15:37:45 - mmengine - INFO - Epoch(train)  [4][20/80]  lr: 1.5733e-04  eta: 1:03:36  time: 7.1497  data_time: 0.0031  memory: 13286  loss: 2.2040  grad_norm: 0.1970
+11/13 15:38:55 - mmengine - INFO - Epoch(train)  [4][30/80]  lr: 1.5428e-04  eta: 1:02:24  time: 7.0176  data_time: 0.0031  memory: 13286  loss: 2.0502  grad_norm: 0.1970
+11/13 15:40:06 - mmengine - INFO - Epoch(train)  [4][40/80]  lr: 1.5117e-04  eta: 1:01:14  time: 7.0741  data_time: 0.0030  memory: 13286  loss: 2.0891  grad_norm: 0.1880
+11/13 15:41:17 - mmengine - INFO - Epoch(train)  [4][50/80]  lr: 1.4800e-04  eta: 1:00:03  time: 7.0844  data_time: 0.0031  memory: 13286  loss: 2.0311  grad_norm: 0.1768
+11/13 15:42:27 - mmengine - INFO - Epoch(train)  [4][60/80]  lr: 1.4477e-04  eta: 0:58:52  time: 7.0145  data_time: 0.0031  memory: 13286  loss: 2.1524  grad_norm: 0.1768
+11/13 15:43:38 - mmengine - INFO - Epoch(train)  [4][70/80]  lr: 1.4148e-04  eta: 0:57:41  time: 7.0766  data_time: 0.0030  memory: 13286  loss: 2.0412  grad_norm: 0.1653
+11/13 15:44:48 - mmengine - INFO - Exp name: bc2_7b_cqae3_20231113_150545
+11/13 15:44:48 - mmengine - INFO - Epoch(train)  [4][80/80]  lr: 1.3815e-04  eta: 0:56:31  time: 7.0573  data_time: 0.0031  memory: 13286  loss: 2.1386  grad_norm: 0.1580
+11/13 15:44:48 - mmengine - INFO - Saving checkpoint at 4 epochs
+/data/yinxiaoln/apps/miniconda3/envs/baichuan2/lib/python3.11/site-packages/torch/utils/checkpoint.py:429: UserWarning: torch.utils.checkpoint: please pass in use_reentrant=True or use_reentrant=False explicitly. The default value of use_reentrant will be updated to be False in the future. To maintain current behavior, pass use_reentrant=True. It is recommended that you use use_reentrant=False. Refer to docs for more details on the differences between the two variants.
+  warnings.warn(
+11/13 15:46:02 - mmengine - INFO - Epoch(train)  [5][10/80]  lr: 1.3477e-04  eta: 0:55:19  time: 7.0154  data_time: 0.0035  memory: 13286  loss: 2.0219  grad_norm: 0.1580
+11/13 15:47:13 - mmengine - INFO - Epoch(train)  [5][20/80]  lr: 1.3135e-04  eta: 0:54:10  time: 7.1471  data_time: 0.0032  memory: 13286  loss: 2.0258  grad_norm: 0.1552
+11/13 15:48:23 - mmengine - INFO - Epoch(train)  [5][30/80]  lr: 1.2790e-04  eta: 0:52:58  time: 7.0163  data_time: 0.0031  memory: 13286  loss: 1.9921  grad_norm: 0.1552
+11/13 15:49:34 - mmengine - INFO - Epoch(train)  [5][40/80]  lr: 1.2443e-04  eta: 0:51:48  time: 7.0718  data_time: 0.0031  memory: 13286  loss: 2.1531  grad_norm: 0.1547
+11/13 15:50:45 - mmengine - INFO - Epoch(train)  [5][50/80]  lr: 1.2093e-04  eta: 0:50:37  time: 7.0736  data_time: 0.0031  memory: 13286  loss: 1.9470  grad_norm: 0.1561
+11/13 15:51:55 - mmengine - INFO - Epoch(train)  [5][60/80]  lr: 1.1741e-04  eta: 0:49:26  time: 7.0125  data_time: 0.0030  memory: 13286  loss: 2.0185  grad_norm: 0.1561
+11/13 15:53:06 - mmengine - INFO - Epoch(train)  [5][70/80]  lr: 1.1389e-04  eta: 0:48:16  time: 7.0706  data_time: 0.0031  memory: 13286  loss: 1.9160  grad_norm: 0.1551
+11/13 15:54:16 - mmengine - INFO - Exp name: bc2_7b_cqae3_20231113_150545
+11/13 15:54:16 - mmengine - INFO - Epoch(train)  [5][80/80]  lr: 1.1035e-04  eta: 0:47:05  time: 7.0739  data_time: 0.0031  memory: 13286  loss: 1.9655  grad_norm: 0.1563
+11/13 15:54:16 - mmengine - INFO - Saving checkpoint at 5 epochs
+/data/yinxiaoln/apps/miniconda3/envs/baichuan2/lib/python3.11/site-packages/torch/utils/checkpoint.py:429: UserWarning: torch.utils.checkpoint: please pass in use_reentrant=True or use_reentrant=False explicitly. The default value of use_reentrant will be updated to be False in the future. To maintain current behavior, pass use_reentrant=True. It is recommended that you use use_reentrant=False. Refer to docs for more details on the differences between the two variants.
+  warnings.warn(
+11/13 15:55:30 - mmengine - INFO - Epoch(train)  [6][10/80]  lr: 1.0682e-04  eta: 0:45:54  time: 7.0155  data_time: 0.0057  memory: 13286  loss: 1.9377  grad_norm: 0.1563
+11/13 15:56:41 - mmengine - INFO - Epoch(train)  [6][20/80]  lr: 1.0329e-04  eta: 0:44:44  time: 7.1426  data_time: 0.0032  memory: 13286  loss: 2.0005  grad_norm: 0.1556
+11/13 15:57:51 - mmengine - INFO - Epoch(train)  [6][30/80]  lr: 9.9773e-05  eta: 0:43:33  time: 7.0139  data_time: 0.0031  memory: 13286  loss: 1.9418  grad_norm: 0.1556
+11/13 15:59:02 - mmengine - INFO - Epoch(train)  [6][40/80]  lr: 9.6270e-05  eta: 0:42:22  time: 7.0732  data_time: 0.0031  memory: 13286  loss: 1.8760  grad_norm: 0.1560
+11/13 16:00:13 - mmengine - INFO - Epoch(train)  [6][50/80]  lr: 9.2789e-05  eta: 0:41:12  time: 7.0719  data_time: 0.0031  memory: 13286  loss: 1.8259  grad_norm: 0.1557
+11/13 16:01:23 - mmengine - INFO - Epoch(train)  [6][60/80]  lr: 8.9334e-05  eta: 0:40:01  time: 7.0069  data_time: 0.0031  memory: 13286  loss: 1.8655  grad_norm: 0.1557
+11/13 16:02:33 - mmengine - INFO - Epoch(train)  [6][70/80]  lr: 8.5911e-05  eta: 0:38:50  time: 7.0647  data_time: 0.0031  memory: 13286  loss: 1.8662  grad_norm: 0.1580
+11/13 16:03:44 - mmengine - INFO - Exp name: bc2_7b_cqae3_20231113_150545
+11/13 16:03:44 - mmengine - INFO - Epoch(train)  [6][80/80]  lr: 8.2525e-05  eta: 0:37:40  time: 7.0654  data_time: 0.0031  memory: 13286  loss: 1.9531  grad_norm: 0.1613
+11/13 16:03:44 - mmengine - INFO - Saving checkpoint at 6 epochs
+/data/yinxiaoln/apps/miniconda3/envs/baichuan2/lib/python3.11/site-packages/torch/utils/checkpoint.py:429: UserWarning: torch.utils.checkpoint: please pass in use_reentrant=True or use_reentrant=False explicitly. The default value of use_reentrant will be updated to be False in the future. To maintain current behavior, pass use_reentrant=True. It is recommended that you use use_reentrant=False. Refer to docs for more details on the differences between the two variants.
+  warnings.warn(
+11/13 16:04:57 - mmengine - INFO - Epoch(train)  [7][10/80]  lr: 7.9181e-05  eta: 0:36:29  time: 7.0160  data_time: 0.0035  memory: 13286  loss: 1.7967  grad_norm: 0.1613
+11/13 16:06:09 - mmengine - INFO - Epoch(train)  [7][20/80]  lr: 7.5885e-05  eta: 0:35:19  time: 7.1447  data_time: 0.0032  memory: 13286  loss: 1.8156  grad_norm: 0.1633
+11/13 16:07:19 - mmengine - INFO - Epoch(train)  [7][30/80]  lr: 7.2642e-05  eta: 0:34:08  time: 7.0137  data_time: 0.0031  memory: 13286  loss: 1.8976  grad_norm: 0.1633
+11/13 16:08:30 - mmengine - INFO - Epoch(train)  [7][40/80]  lr: 6.9456e-05  eta: 0:32:57  time: 7.0722  data_time: 0.0031  memory: 13286  loss: 1.9071  grad_norm: 0.1643
+11/13 16:09:41 - mmengine - INFO - Epoch(train)  [7][50/80]  lr: 6.6333e-05  eta: 0:31:46  time: 7.0769  data_time: 0.0031  memory: 13286  loss: 1.7526  grad_norm: 0.1653
+11/13 16:10:51 - mmengine - INFO - Epoch(train)  [7][60/80]  lr: 6.3277e-05  eta: 0:30:36  time: 7.0121  data_time: 0.0031  memory: 13286  loss: 1.7817  grad_norm: 0.1653
+11/13 16:12:01 - mmengine - INFO - Epoch(train)  [7][70/80]  lr: 6.0293e-05  eta: 0:29:25  time: 7.0712  data_time: 0.0031  memory: 13286  loss: 1.8234  grad_norm: 0.1663
+11/13 16:13:12 - mmengine - INFO - Exp name: bc2_7b_cqae3_20231113_150545
+11/13 16:13:12 - mmengine - INFO - Epoch(train)  [7][80/80]  lr: 5.7386e-05  eta: 0:28:14  time: 7.0737  data_time: 0.0031  memory: 13286  loss: 1.7904  grad_norm: 0.1678
+11/13 16:13:12 - mmengine - INFO - Saving checkpoint at 7 epochs
+/data/yinxiaoln/apps/miniconda3/envs/baichuan2/lib/python3.11/site-packages/torch/utils/checkpoint.py:429: UserWarning: torch.utils.checkpoint: please pass in use_reentrant=True or use_reentrant=False explicitly. The default value of use_reentrant will be updated to be False in the future. To maintain current behavior, pass use_reentrant=True. It is recommended that you use use_reentrant=False. Refer to docs for more details on the differences between the two variants.
+  warnings.warn(
+11/13 16:14:25 - mmengine - INFO - Epoch(train)  [8][10/80]  lr: 5.4560e-05  eta: 0:27:04  time: 7.0090  data_time: 0.0034  memory: 13286  loss: 1.7267  grad_norm: 0.1678
+11/13 16:15:37 - mmengine - INFO - Epoch(train)  [8][20/80]  lr: 5.1819e-05  eta: 0:25:53  time: 7.1421  data_time: 0.0032  memory: 13286  loss: 1.7777  grad_norm: 0.1692
+11/13 16:16:47 - mmengine - INFO - Epoch(train)  [8][30/80]  lr: 4.9168e-05  eta: 0:24:42  time: 7.0117  data_time: 0.0031  memory: 13286  loss: 1.8460  grad_norm: 0.1692
+11/13 16:17:58 - mmengine - INFO - Epoch(train)  [8][40/80]  lr: 4.6611e-05  eta: 0:23:32  time: 7.0753  data_time: 0.0031  memory: 13286  loss: 1.7514  grad_norm: 0.1707
+11/13 16:19:08 - mmengine - INFO - Epoch(train)  [8][50/80]  lr: 4.4151e-05  eta: 0:22:21  time: 7.0734  data_time: 0.0031  memory: 13286  loss: 1.7769  grad_norm: 0.1726
+11/13 16:20:19 - mmengine - INFO - Epoch(train)  [8][60/80]  lr: 4.1794e-05  eta: 0:21:11  time: 7.0176  data_time: 0.0031  memory: 13286  loss: 1.6776  grad_norm: 0.1726
+11/13 16:21:29 - mmengine - INFO - Epoch(train)  [8][70/80]  lr: 3.9541e-05  eta: 0:20:00  time: 7.0733  data_time: 0.0031  memory: 13286  loss: 1.8366  grad_norm: 0.1729
+11/13 16:22:40 - mmengine - INFO - Exp name: bc2_7b_cqae3_20231113_150545
+11/13 16:22:40 - mmengine - INFO - Epoch(train)  [8][80/80]  lr: 3.7397e-05  eta: 0:18:49  time: 7.0717  data_time: 0.0031  memory: 13286  loss: 1.6033  grad_norm: 0.1749
+11/13 16:22:40 - mmengine - INFO - Saving checkpoint at 8 epochs
+/data/yinxiaoln/apps/miniconda3/envs/baichuan2/lib/python3.11/site-packages/torch/utils/checkpoint.py:429: UserWarning: torch.utils.checkpoint: please pass in use_reentrant=True or use_reentrant=False explicitly. The default value of use_reentrant will be updated to be False in the future. To maintain current behavior, pass use_reentrant=True. It is recommended that you use use_reentrant=False. Refer to docs for more details on the differences between the two variants.
+  warnings.warn(
+11/13 16:23:53 - mmengine - INFO - Epoch(train)  [9][10/80]  lr: 3.5365e-05  eta: 0:17:39  time: 7.0147  data_time: 0.0034  memory: 13286  loss: 1.6639  grad_norm: 0.1749
+11/13 16:25:05 - mmengine - INFO - Epoch(train)  [9][20/80]  lr: 3.3448e-05  eta: 0:16:28  time: 7.1466  data_time: 0.0032  memory: 13286  loss: 1.6524  grad_norm: 0.1765
+11/13 16:26:15 - mmengine - INFO - Epoch(train)  [9][30/80]  lr: 3.1649e-05  eta: 0:15:18  time: 7.0140  data_time: 0.0030  memory: 13286  loss: 1.6831  grad_norm: 0.1765
+11/13 16:27:26 - mmengine - INFO - Epoch(train)  [9][40/80]  lr: 2.9970e-05  eta: 0:14:07  time: 7.0765  data_time: 0.0031  memory: 13286  loss: 1.6954  grad_norm: 0.1784
+11/13 16:28:36 - mmengine - INFO - Epoch(train)  [9][50/80]  lr: 2.8416e-05  eta: 0:12:56  time: 7.0765  data_time: 0.0031  memory: 13286  loss: 1.7422  grad_norm: 0.1808
+11/13 16:29:46 - mmengine - INFO - Epoch(train)  [9][60/80]  lr: 2.6987e-05  eta: 0:11:46  time: 7.0160  data_time: 0.0031  memory: 13286  loss: 1.6784  grad_norm: 0.1808
+11/13 16:30:57 - mmengine - INFO - Epoch(train)  [9][70/80]  lr: 2.5686e-05  eta: 0:10:35  time: 7.0744  data_time: 0.0031  memory: 13286  loss: 1.6748  grad_norm: 0.1829
+11/13 16:32:08 - mmengine - INFO - Exp name: bc2_7b_cqae3_20231113_150545
+11/13 16:32:08 - mmengine - INFO - Epoch(train)  [9][80/80]  lr: 2.4515e-05  eta: 0:09:24  time: 7.0733  data_time: 0.0031  memory: 13286  loss: 1.7794  grad_norm: 0.1838
+11/13 16:32:08 - mmengine - INFO - Saving checkpoint at 9 epochs
+/data/yinxiaoln/apps/miniconda3/envs/baichuan2/lib/python3.11/site-packages/torch/utils/checkpoint.py:429: UserWarning: torch.utils.checkpoint: please pass in use_reentrant=True or use_reentrant=False explicitly. The default value of use_reentrant will be updated to be False in the future. To maintain current behavior, pass use_reentrant=True. It is recommended that you use use_reentrant=False. Refer to docs for more details on the differences between the two variants.
+  warnings.warn(
+11/13 16:33:21 - mmengine - INFO - Epoch(train) [10][10/80]  lr: 2.3476e-05  eta: 0:08:14  time: 7.0126  data_time: 0.0034  memory: 13286  loss: 1.6496  grad_norm: 0.1838
+11/13 16:34:33 - mmengine - INFO - Epoch(train) [10][20/80]  lr: 2.2570e-05  eta: 0:07:03  time: 7.1460  data_time: 0.0031  memory: 13286  loss: 1.6669  grad_norm: 0.1853
+11/13 16:35:43 - mmengine - INFO - Epoch(train) [10][30/80]  lr: 2.1799e-05  eta: 0:05:53  time: 7.0135  data_time: 0.0031  memory: 13286  loss: 1.7065  grad_norm: 0.1853
+11/13 16:36:53 - mmengine - INFO - Epoch(train) [10][40/80]  lr: 2.1164e-05  eta: 0:04:42  time: 7.0707  data_time: 0.0031  memory: 13286  loss: 1.6754  grad_norm: 0.1861
+11/13 16:38:04 - mmengine - INFO - Epoch(train) [10][50/80]  lr: 2.0666e-05  eta: 0:03:31  time: 7.0746  data_time: 0.0031  memory: 13286  loss: 1.5816  grad_norm: 0.1857
+11/13 16:39:14 - mmengine - INFO - Epoch(train) [10][60/80]  lr: 2.0306e-05  eta: 0:02:21  time: 7.0109  data_time: 0.0030  memory: 13286  loss: 1.7347  grad_norm: 0.1857
+11/13 16:40:25 - mmengine - INFO - Epoch(train) [10][70/80]  lr: 2.0084e-05  eta: 0:01:10  time: 7.0795  data_time: 0.0031  memory: 13286  loss: 1.6756  grad_norm: 0.1878
+11/13 16:41:36 - mmengine - INFO - Exp name: bc2_7b_cqae3_20231113_150545
+11/13 16:41:36 - mmengine - INFO - Epoch(train) [10][80/80]  lr: 2.0001e-05  eta: 0:00:00  time: 7.0791  data_time: 0.0031  memory: 13286  loss: 1.5767  grad_norm: 0.1882
+11/13 16:41:36 - mmengine - INFO - Saving checkpoint at 10 epochs

@@ -8,7 +8,7 @@ import torch
 import yaml
 from torch import nn
 
-from d2l import torch as d2l
+from d2l_ai import torch as d2l
 from log import logger
 
 LOG = logger.Logger().get_logger()
