@@ -20,6 +20,7 @@ db_name = "nl2sql"
 db = SQLDatabase.from_uri("mysql+pymysql://root:123456@10.82.77.104/nl2sql")
 
 from langchain.chat_models import ChatOpenAI
+
 llm = ChatOpenAI(model_name="gpt-3.5-turbo")
 
 toolkit = SQLDatabaseToolkit(db=db, llm=llm)
@@ -30,5 +31,23 @@ agent_executor = create_sql_agent(
     verbose=True
 )
 
-#agent_executor.run("描述与订单相关的表及其关系")
+# agent_executor.run("描述与订单相关的表及其关系")
 agent_executor.run("张三今年有哪些订单")
+
+
+# 查询一段时间内的销售额
+def sum_of_sales(start_date, end_date):
+    # 用户自定义实现
+    pass
+
+
+# 查询订单的同比增长
+def year_on_year_growth_rate_order(compare, compared):
+    # 用户自定义实现
+    pass
+
+
+# 查询库存的环比增长
+def month_on_month_growth_rate_inventory(compare, compared):
+    # 用户自定义实现
+    pass
