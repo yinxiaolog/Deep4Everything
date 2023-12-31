@@ -1,5 +1,5 @@
 import torch
-from d2l_ai import torch as d2l
+from d2l import torch as d2l
 from torch import nn
 
 from utils.constant import *
