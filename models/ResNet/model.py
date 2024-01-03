@@ -11,7 +11,7 @@ class Model(nn.Module):
         super().__init__()
         self.lr = config.hyper_params['lr']
         self.weight_decay = 0
-        self.net = torchvision.models.resnet152()
+        self.net = torchvision.models.resnet50()
         self.net.conv1 = nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
 
     def forward(self, features: torch.Tensor):

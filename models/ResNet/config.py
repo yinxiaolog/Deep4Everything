@@ -1,7 +1,7 @@
 name = 'ResNet'
 
 hyper_params = {
-    'batch_size': 512,
+    'batch_size': 1024,
     'epochs': 300,
     'lr': 0.2,
     'weight_decay': 0

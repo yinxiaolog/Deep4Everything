@@ -4,3 +4,5 @@ log.txt
 /d2l_ai/data
 /datasets
 /.idea
+.*pyc
+/.fleet
