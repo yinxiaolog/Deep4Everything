@@ -5,12 +5,19 @@ import json
 import datetime
 from tqdm import tqdm
 from enum import Enum
+from multiprocessing import Pool
 import matplotlib.pyplot as plt
+import pymysql
+import psycopg2
+import pandas as pd
+from loguru import logger as LOG
 
 DATA_PATH = '/data/yinxiaoln/code/Deep4Everything/datasets/aiops2023'
 SAVE_PATH = '/data/yinxiaoln/datasets/aiops2023/processed'
 SAVE_MONITOR = os.path.join(SAVE_PATH, 'monitor')
 SAVE_TC = os.path.join(SAVE_PATH, 'tc')
+MONITOR = 'monitor'
+TC = 'tc'
 
 os.makedirs(SAVE_PATH, exist_ok=True)
 os.makedirs(SAVE_MONITOR, exist_ok=True)
@@ -19,15 +26,33 @@ os.makedirs(SAVE_TC, exist_ok=True)
 
 class AiOpsEnum(Enum):
     FAULT_DATA = 'fault_data'
+    FAULT_DATA_MONITOR = 'fault_data_monitor_%s' % MONITOR
+    FAULT_DATA_TC = 'fault_data_monitor_%s' % TC
     NEW_FAULT_DATA = 'new_fault_data'
+    NEW_FAULT_DATA_MONITOR = 'new_fault_data_%s' % MONITOR
+    NEW_FAULT_DATA_TC = 'new_fault_data_%s' % TC
     NO_FAULT_DATA = 'no_fault_data'
+    NO_FAULT_DATA_MONITOR = 'no_fault_data_%s' % MONITOR
+    NO_FAULT_DATA_TC = 'no_fault_data_%s' % TC
     ALL_FAULT_DATA = 'all_fault_data'
+    MONITOR_DATA = 'monitor'
+    TC_DATA = 'tc'
     ALL = 'all'
+    T_FAULT_MONITOR = 'fault_monitor'
+    T_FAULT_TC = 'fault_tc'
+    T_NEW_FAULT_MONITOR = 'new_fault_monitor'
+    T_NEW_FAULT_TC = 'new_fault_tc'
+    T_NO_FAULT_MONITOR = 'no_fault_monitor'
+    T_NO_FAULT_TC = 'no_fault_tc'
 
 
 fault_data_path = os.path.join(DATA_PATH, AiOpsEnum.FAULT_DATA.value)
 new_fault_data_path = os.path.join(DATA_PATH, AiOpsEnum.NEW_FAULT_DATA.value)
 no_fault_data_path = os.path.join(DATA_PATH, AiOpsEnum.NO_FAULT_DATA.value)
+
+success_files = [
+
+]
 
 
 class DataPoint:
@@ -238,50 +263,32 @@ def add_one_metric(linux_metrics: {}, metric: Metric):
 
 
 def read_tc(tc_type: AiOpsEnum.ALL):
-    tc = 'tc'
-    tc_path = []
-    if tc_type == AiOpsEnum.ALL:
-        tc_path = [os.path.join(fault_data_path, tc),
-                   os.path.join(new_fault_data_path, tc),
-                   os.path.join(no_fault_data_path, tc)]
-    elif tc_type == AiOpsEnum.FAULT_DATA:
-        tc_path = [os.path.join(fault_data_path, tc)]
-    elif tc_type == AiOpsEnum.NEW_FAULT_DATA:
-        tc_path = [os.path.join(new_fault_data_path, tc)]
-    elif tc_type == AiOpsEnum.NO_FAULT_DATA:
-        tc_path = [os.path.join(no_fault_data_path, tc)]
-    elif tc_type == AiOpsEnum.ALL_FAULT_DATA:
-        tc_path = [os.path.join(fault_data_path, tc),
-                   os.path.join(new_fault_data_path, tc)]
+    files = csv_files(tc_type)
     tc_metrics = []
-    tc_file = os.path.join(SAVE_TC, 'tc.json')
+    tc_file = os.path.join(SAVE_TC, '%s.json' % tc_type.value)
     if os.path.isfile(tc_file):
         with open(tc_file, 'r', encoding='utf-8') as f:
             json_str = f.read()
             tc_metrics = json.loads(json_str, object_hook=transaction_decoder)
             return tc_metrics
-    for path in tc_path:
-        files = os.listdir(path)
-        for file in files:
-            file_path = os.path.join(path, file)
-            if os.path.isfile(file_path) and 'csv' in file:
-                with open(file_path, mode='r', encoding='utf-8') as f:
-                    reader = csv.reader(f)
-                    # 去掉标题
-                    next(reader)
-                    for row in reader:
-                        tran = Transaction(row[0],
-                                           int(row[1]),
-                                           int(row[2]),
-                                           float(row[3]),
-                                           float(row[4]),
-                                           float(row[5]),
-                                           int(row[6]),
-                                           float(row[7]),
-                                           float(row[8]),
-                                           float(row[9]))
-                        tc_metrics.append(tran)
-                print(file_path, len(tc_metrics))
+    for file in files:
+        with open(file, mode='r', encoding='utf-8') as f:
+            reader = csv.reader(f)
+            # 去掉标题
+            next(reader)
+            for row in reader:
+                tran = Transaction(row[0],
+                                   int(row[1]),
+                                   int(row[2]),
+                                   float(row[3]),
+                                   float(row[4]),
+                                   float(row[5]),
+                                   int(row[6]),
+                                   float(row[7]),
+                                   float(row[8]),
+                                   float(row[9]))
+                tc_metrics.append(tran)
+        print(file, len(tc_metrics))
 
     json_str = json.dumps(tc_metrics, indent=4, cls=TransactionEncoder)
     with open(tc_file, 'w', encoding='utf-8') as f:
@@ -315,35 +322,15 @@ def plot_linux_metric(start: int, end: int):
 
 
 def metric_to_datapoint(monitor_type: AiOpsEnum.ALL):
-    monitor = 'monitor'
-    monitor_path = []
-    if monitor_type == AiOpsEnum.ALL:
-        monitor_path = [os.path.join(fault_data_path, monitor),
-                        os.path.join(new_fault_data_path, monitor),
-                        os.path.join(no_fault_data_path, monitor)]
-    elif monitor_type == AiOpsEnum.FAULT_DATA:
-        monitor_path = [os.path.join(fault_data_path, monitor)]
-    elif monitor_type == AiOpsEnum.NEW_FAULT_DATA:
-        monitor_path = [os.path.join(new_fault_data_path, monitor)]
-    elif monitor_type == AiOpsEnum.NO_FAULT_DATA:
-        monitor_path = [os.path.join(no_fault_data_path, monitor)]
-    elif monitor_type == AiOpsEnum.ALL_FAULT_DATA:
-        monitor_path = [os.path.join(fault_data_path, monitor),
-                        os.path.join(new_fault_data_path, monitor)]
-
-    for path in monitor_path:
-        files = os.listdir(path)
-        for file in files:
-            file_path = os.path.join(path, file)
-            if os.path.isfile(file_path) and 'csv' in file:
-                datapoints = read_datapoints_from_monitor_csv(file_path)
-                json_str = json.dumps(
-                    datapoints, indent=4, cls=DataPointEncoder)
-                name = file.removesuffix('.csv')
-                json_file_path = os.path.join(SAVE_MONITOR, f'sorted_{name}')
-                with open(json_file_path, 'w', encoding='utf-8') as f:
-                    f.write(json_str)
-                print(f'write {json_file_path} done')
+    files = csv_files(monitor_type)
+    for file in files:
+        datapoints = read_datapoints_from_monitor_csv(file)
+        json_str = json.dumps(datapoints, indent=4, cls=DataPointEncoder)
+        name = os.path.basename(file).removesuffix('.csv')
+        json_file_path = os.path.join(SAVE_MONITOR, f'sorted_{monitor_type.value}_{name}.json')
+        with open(json_file_path, 'w', encoding='utf-8') as f:
+            f.write(json_str)
+        print(f'write {json_file_path} done')
 
 
 def read_datapoints_from_monitor_csv(file_path):
@@ -402,8 +389,178 @@ def tc_to_datapoint(tc):
     return datapoints
 
 
+def csv_files(data_type: AiOpsEnum.ALL):
+    paths = []
+    if data_type == AiOpsEnum.MONITOR_DATA:
+        paths = [os.path.join(fault_data_path, MONITOR),
+                 os.path.join(new_fault_data_path, MONITOR),
+                 os.path.join(no_fault_data_path, MONITOR)]
+    elif data_type == AiOpsEnum.TC_DATA:
+        paths = [os.path.join(fault_data_path, TC),
+                 os.path.join(new_fault_data_path, TC),
+                 os.path.join(no_fault_data_path, TC)]
+    elif data_type == AiOpsEnum.FAULT_DATA_MONITOR:
+        paths = [os.path.join(fault_data_path, MONITOR)]
+    elif data_type == AiOpsEnum.NEW_FAULT_DATA_MONITOR:
+        paths = [os.path.join(new_fault_data_path, MONITOR)]
+    elif data_type == AiOpsEnum.NO_FAULT_DATA_MONITOR:
+        paths = [os.path.join(no_fault_data_path, MONITOR)]
+    elif data_type == AiOpsEnum.FAULT_DATA_TC:
+        paths = [os.path.join(fault_data_path, TC)]
+    elif data_type == AiOpsEnum.NEW_FAULT_DATA_TC:
+        paths = [os.path.join(new_fault_data_path, TC)]
+    elif data_type == AiOpsEnum.NO_FAULT_DATA_TC:
+        paths = [os.path.join(no_fault_data_path, TC)]
+    elif data_type == AiOpsEnum.ALL:
+        paths = [os.path.join(fault_data_path, MONITOR),
+                 os.path.join(new_fault_data_path, MONITOR),
+                 os.path.join(no_fault_data_path, MONITOR),
+                 os.path.join(fault_data_path, TC),
+                 os.path.join(new_fault_data_path, TC),
+                 os.path.join(no_fault_data_path, TC)
+                 ]
+    else:
+        print("error not support this type", data_type)
+
+    ans = []
+    for path in paths:
+        files = os.listdir(path)
+        for file in files:
+            file_path = os.path.join(path, file)
+            if os.path.isfile(file_path) and '.csv' in file:
+                ans.append(file_path)
+    return sorted(ans)
+
+
+def write_monitor_to_mysql(data_type: AiOpsEnum.ALL):
+    files = csv_files(data_type)
+    LOG.info("pid=%d" % os.getpid())
+    for file in files:
+        if file in success_files:
+            continue
+        sql = get_sql_by_data(file)
+        data = []
+        df = pd.read_csv(file)
+        df.fillna('unk', inplace=True)
+        for _, row in df.iterrows():
+            data.append((row['cmdb_id'], row['kpi_name'], row['device'], row['value'], row['timestamp']))
+        # conn = pymysql.connect(
+        #     host='10.82.77.104',
+        #     user='root',
+        #     password='123456',
+        #     db='aiops2023'
+        # )
+        conn = psycopg2.connect(
+            database='aiops2023',
+            host='10.82.77.104',
+            user='yinxiaoln',
+            password='123456'
+        )
+        cursor = conn.cursor()
+        try:
+            LOG.info(f'{file}, {sql}')
+            cursor.executemany(sql, data)
+            conn.commit()
+            LOG.success(f'write {file}')
+        except Exception as e:
+            LOG.error('error: %s %s %s' % (file, sql, e))
+        finally:
+            cursor.close()
+            conn.close()
+
+
+def write_tc_to_mysql(data_type: AiOpsEnum.ALL):
+    files = csv_files(data_type)
+    LOG.info('pid=%d' % os.getpid())
+    for file in files:
+        if file in success_files:
+            continue
+        data = []
+        df = pd.read_csv(file)
+        for _, row in df.iterrows():
+            data.append((row['tran_code'], row['timestamp'], row['amount'], row['bus_success_rate'],
+                         row['sys_success_rate'], row['avg_rsp_time'], row['stall_amount'], row['avg_proc_time'],
+                         row['stall_rate'], row['apdex']))
+        # conn = pymysql.connect(
+        #     host='10.82.77.104',
+        #     user='root',
+        #     password='123456',
+        #     db='aiops2023'
+        # )
+        conn = psycopg2.connect(
+            database='aiops2023',
+            host='10.82.77.104',
+            user='yinxiaoln',
+            password='123456'
+        )
+        sql = get_sql_by_data(file)
+        LOG.info(f'{file}, {sql}')
+        cursor = conn.cursor()
+        try:
+            LOG.info(f'{file}, {sql}')
+            cursor.executemany(sql, data)
+            conn.commit()
+            LOG.success(f'write {file}')
+        except Exception as e:
+            LOG.error('%s %s %s' % (file, sql, e))
+        finally:
+            cursor.close()
+            conn.close()
+
+
+def get_sql_by_data(file):
+    if MONITOR in file:
+        if AiOpsEnum.NEW_FAULT_DATA.value in file:
+            table_name = AiOpsEnum.T_NEW_FAULT_MONITOR.value
+        elif AiOpsEnum.NO_FAULT_DATA.value in file:
+            table_name = AiOpsEnum.T_NO_FAULT_MONITOR.value
+        elif AiOpsEnum.FAULT_DATA.value in file:
+            table_name = AiOpsEnum.T_FAULT_MONITOR.value
+        else:
+            LOG.error("table_name not match %s", file)
+            return None
+        #sql = """insert ignore into %s values(%s, %s, %s, %s, %s)""" % (table_name, '%s', '%s', '%s', '%s', '%s')
+        sql = f'insert into {table_name} values(%s, %s, %s, %s, %s) on conflict do nothing'
+        return sql
+    elif TC in file:
+        if AiOpsEnum.NEW_FAULT_DATA.value in file:
+            table_name = AiOpsEnum.T_NEW_FAULT_TC.value
+        elif AiOpsEnum.NO_FAULT_DATA.value in file:
+            table_name = AiOpsEnum.T_NO_FAULT_TC.value
+        elif AiOpsEnum.FAULT_DATA.value in file:
+            table_name = AiOpsEnum.T_FAULT_TC.value
+        else:
+            LOG.error("table name not match %s", file)
+            return None
+        #sql = f'insert ignore into {table_name} %s values(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) on conflict do nothing'
+        sql = f'insert into {table_name} values(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) on conflict do nothing'
+        return sql
+
+
+def write_mysql_multi_process():
+    pool = Pool(8)
+    # pool.apply_async(func=write_monitor_to_mysql, args=(AiOpsEnum.NO_FAULT_DATA_MONITOR,))
+    # pool.apply_async(func=write_monitor_to_mysql, args=(AiOpsEnum.FAULT_DATA_MONITOR,))
+    # pool.apply_async(func=write_monitor_to_mysql, args=(AiOpsEnum.NEW_FAULT_DATA_MONITOR,))
+    pool.apply_async(func=write_tc_to_mysql, args=(AiOpsEnum.NO_FAULT_DATA_TC,))
+    pool.apply_async(func=write_tc_to_mysql, args=(AiOpsEnum.FAULT_DATA_TC,))
+    pool.apply_async(func=write_tc_to_mysql, args=(AiOpsEnum.NEW_FAULT_DATA_TC,))
+    pool.close()
+    pool.join()
+    LOG.success("write all file done")
+
+
 # read_monitor()
 # plot_linux_metric(1694620860, 1694620860 + 3600 * 24 * 7)
-#read_monitor(AiOpsEnum.ALL_FAULT_DATA)
-#metric_to_datapoint(AiOpsEnum.ALL_FAULT_DATA)
-tc_to_datapoint(read_tc(AiOpsEnum.ALL_FAULT_DATA))
+# read_monitor(AiOpsEnum.ALL_FAULT_DATA)
+# metric_to_datapoint(AiOpsEnum.ALL_FAULT_DATA)
+# tc_to_datapoint(read_tc(AiOpsEnum.ALL_FAULT_DATA))
+# write_monitor_to_mysql(AiOpsEnum.FAULT_DATA_MONITOR)
+# write_monitor_to_mysql(AiOpsEnum.NEW_FAULT_DATA_MONITOR)
+# write_monitor_to_mysql(AiOpsEnum.NO_FAULT_DATA_MONITOR)
+# write_tc_to_mysql(AiOpsEnum.FAULT_DATA_TC)
+# write_tc_to_mysql(AiOpsEnum.NEW_FAULT_DATA_TC)
+# write_tc_to_mysql(AiOpsEnum.NO_FAULT_DATA_TC)
+
+if __name__ == '__main__':
+    write_mysql_multi_process()

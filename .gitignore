@@ -1,8 +1,8 @@
-*log.*
-log.txt
-/data
-/d2l_ai/data
-/datasets
+*log*
+data/
+datasets/
 /.idea
-.*pyc
+*pyc
 /.fleet
+/.vscode
+__pycache__/
