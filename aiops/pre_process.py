@@ -3,14 +3,20 @@ import os
 import csv
 import json
 import datetime
+import time
+import sys
 from tqdm import tqdm
 from enum import Enum
 from multiprocessing import Pool
 import matplotlib.pyplot as plt
-import pymysql
 import psycopg2
 import pandas as pd
 from loguru import logger as LOG
+import numpy as np
+import pandas as pd
+
+LOG.remove()
+LOG.add(sys.stderr, level='INFO')
 
 DATA_PATH = '/data/yinxiaoln/code/Deep4Everything/datasets/aiops2023'
 SAVE_PATH = '/data/yinxiaoln/datasets/aiops2023/processed'
@@ -18,6 +24,7 @@ SAVE_MONITOR = os.path.join(SAVE_PATH, 'monitor')
 SAVE_TC = os.path.join(SAVE_PATH, 'tc')
 MONITOR = 'monitor'
 TC = 'tc'
+
 
 os.makedirs(SAVE_PATH, exist_ok=True)
 os.makedirs(SAVE_MONITOR, exist_ok=True)
@@ -53,6 +60,28 @@ no_fault_data_path = os.path.join(DATA_PATH, AiOpsEnum.NO_FAULT_DATA.value)
 success_files = [
 
 ]
+
+cmdb_id_back_list = [
+    'Weblogic_40', 'Weblogic_41', 'Weblogic_42', 'Weblogic_43', 'Weblogic_44',
+    'Weblogic_45', 'Weblogic_46', 'Weblogic_47', 'Weblogic_48', 'Weblogic_47',
+    'Weblogic_50'
+]
+
+tc_metrics = [
+    'amount',
+    'bus_success_rate',
+    'sys_success_rate',
+    'avg_rsp_time',
+    'stall_amount',
+    'avg_proc_time',
+    'stall_rate',
+    'apdex'
+]
+
+# 序列长度为1h
+seq_len = 256
+window = 5 * 60
+dim = 512
 
 
 class DataPoint:
@@ -122,6 +151,20 @@ class Transaction:
         return self.__str__()
 
 
+class Fault:
+    def __init__(self, start: int, end: int, values: []):
+        self.start = start
+        self.end = end
+        self.values = values
+        self.faults = []
+
+    def __lt__(self, other):
+        return self.start <= other.start
+
+    def __str__(self):
+        return str(__dict__)
+
+
 class MetricEncoder(json.JSONEncoder):
     def default(self, o):
         return o.__dict__
@@ -160,6 +203,11 @@ def transaction_decoder(dct):
 
 
 class DataPointEncoder(json.JSONEncoder):
+    def default(self, o):
+        return o.__dict__
+
+
+class FaultEncoder(json.JSONEncoder):
     def default(self, o):
         return o.__dict__
 
@@ -327,7 +375,8 @@ def metric_to_datapoint(monitor_type: AiOpsEnum.ALL):
         datapoints = read_datapoints_from_monitor_csv(file)
         json_str = json.dumps(datapoints, indent=4, cls=DataPointEncoder)
         name = os.path.basename(file).removesuffix('.csv')
-        json_file_path = os.path.join(SAVE_MONITOR, f'sorted_{monitor_type.value}_{name}.json')
+        json_file_path = os.path.join(
+            SAVE_MONITOR, f'sorted_{monitor_type.value}_{name}.json')
         with open(json_file_path, 'w', encoding='utf-8') as f:
             f.write(json_str)
         print(f'write {json_file_path} done')
@@ -443,7 +492,8 @@ def write_monitor_to_mysql(data_type: AiOpsEnum.ALL):
         df = pd.read_csv(file)
         df.fillna('unk', inplace=True)
         for _, row in df.iterrows():
-            data.append((row['cmdb_id'], row['kpi_name'], row['device'], row['value'], row['timestamp']))
+            data.append((row['cmdb_id'], row['kpi_name'],
+                        row['device'], row['value'], row['timestamp']))
         # conn = pymysql.connect(
         #     host='10.82.77.104',
         #     user='root',
@@ -519,7 +569,7 @@ def get_sql_by_data(file):
         else:
             LOG.error("table_name not match %s", file)
             return None
-        #sql = """insert ignore into %s values(%s, %s, %s, %s, %s)""" % (table_name, '%s', '%s', '%s', '%s', '%s')
+        # sql = """insert ignore into %s values(%s, %s, %s, %s, %s)""" % (table_name, '%s', '%s', '%s', '%s', '%s')
         sql = f'insert into {table_name} values(%s, %s, %s, %s, %s) on conflict do nothing'
         return sql
     elif TC in file:
@@ -532,19 +582,24 @@ def get_sql_by_data(file):
         else:
             LOG.error("table name not match %s", file)
             return None
-        #sql = f'insert ignore into {table_name} %s values(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) on conflict do nothing'
+        # sql = f'insert ignore into {table_name} %s values(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) on conflict do nothing'
         sql = f'insert into {table_name} values(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) on conflict do nothing'
         return sql
 
 
 def write_mysql_multi_process():
     pool = Pool(8)
-    # pool.apply_async(func=write_monitor_to_mysql, args=(AiOpsEnum.NO_FAULT_DATA_MONITOR,))
-    # pool.apply_async(func=write_monitor_to_mysql, args=(AiOpsEnum.FAULT_DATA_MONITOR,))
-    # pool.apply_async(func=write_monitor_to_mysql, args=(AiOpsEnum.NEW_FAULT_DATA_MONITOR,))
-    pool.apply_async(func=write_tc_to_mysql, args=(AiOpsEnum.NO_FAULT_DATA_TC,))
+    pool.apply_async(func=write_monitor_to_mysql,
+                     args=(AiOpsEnum.NO_FAULT_DATA_MONITOR,))
+    pool.apply_async(func=write_monitor_to_mysql,
+                     args=(AiOpsEnum.FAULT_DATA_MONITOR,))
+    pool.apply_async(func=write_monitor_to_mysql,
+                     args=(AiOpsEnum.NEW_FAULT_DATA_MONITOR,))
+    pool.apply_async(func=write_tc_to_mysql,
+                     args=(AiOpsEnum.NO_FAULT_DATA_TC,))
     pool.apply_async(func=write_tc_to_mysql, args=(AiOpsEnum.FAULT_DATA_TC,))
-    pool.apply_async(func=write_tc_to_mysql, args=(AiOpsEnum.NEW_FAULT_DATA_TC,))
+    pool.apply_async(func=write_tc_to_mysql,
+                     args=(AiOpsEnum.NEW_FAULT_DATA_TC,))
     pool.close()
     pool.join()
     LOG.success("write all file done")
@@ -555,12 +610,300 @@ def write_mysql_multi_process():
 # read_monitor(AiOpsEnum.ALL_FAULT_DATA)
 # metric_to_datapoint(AiOpsEnum.ALL_FAULT_DATA)
 # tc_to_datapoint(read_tc(AiOpsEnum.ALL_FAULT_DATA))
-# write_monitor_to_mysql(AiOpsEnum.FAULT_DATA_MONITOR)
-# write_monitor_to_mysql(AiOpsEnum.NEW_FAULT_DATA_MONITOR)
-# write_monitor_to_mysql(AiOpsEnum.NO_FAULT_DATA_MONITOR)
-# write_tc_to_mysql(AiOpsEnum.FAULT_DATA_TC)
-# write_tc_to_mysql(AiOpsEnum.NEW_FAULT_DATA_TC)
-# write_tc_to_mysql(AiOpsEnum.NO_FAULT_DATA_TC)
+
+
+def select_from_pg(sql):
+    conn = psycopg2.connect(
+        database='aiops2023',
+        host='10.82.77.104',
+        user='yinxiaoln',
+        password='123456'
+    )
+
+    cursor = conn.cursor()
+    ans = []
+    try:
+        cursor.execute(sql)
+        ans = cursor.fetchall()
+    except Exception as e:
+        LOG.error('%s' % (e))
+    finally:
+        cursor.close()
+        conn.close()
+    # LOG.info(f'rows={len(ans)}, {sql}')
+    return ans
+
+
+def fault_per_timeseries(rows):
+    faults = []
+    i = 0
+    while i < len(rows):
+        if rows[i][1] >= 100:
+            i += 1
+            continue
+        j = i
+        while j < len(rows):
+            if rows[j][1] < 100:
+                j += 1
+                if j > 0 and j < len(rows) and rows[j][2] > rows[j - 1][2] + 10:
+                    break
+                continue
+            else:
+                break
+        fault = Fault(rows[i][2] - window, rows[j - 1][2] + window, rows[i: j])
+        faults.append(fault)
+        i = j
+    return faults
+
+
+def find_fault(table_name: AiOpsEnum.T_FAULT_TC):
+    tran_code_sql = f'select distinct tran_code from {table_name.value} order by tran_code'
+    tran_codes = select_from_pg(tran_code_sql)
+    tran_code_to_bus_success_rate = {}
+    for tran_code in tran_codes:
+        sql = f"select tran_code, bus_success_rate, timestamp from {table_name.value} where tran_code = '{tran_code[0]}' order by timestamp"
+        tran_code_to_bus_success_rate[tran_code[0]] = select_from_pg(sql)
+
+    faults = []
+    for k, v in tran_code_to_bus_success_rate.items():
+        LOG.debug(k)
+        faults.extend(fault_per_timeseries(v))
+
+    faults = sorted(faults)
+    file = os.path.join(SAVE_PATH, f'{table_name.value}.json')
+    with open(file, 'w') as f:
+        f.write(json.dumps(faults, indent=4, cls=FaultEncoder))
+    start = faults[0].start
+    end = faults[0].end
+    new_faults = []
+    values = []
+    for fault in faults:
+        if fault.start > end:
+            values = sorted(values, key=lambda row: row[2])
+            new_fault = Fault(start, end, values.copy())
+            new_faults.append(new_fault)
+            start_time = time.strftime(
+                "%Y-%m-%d %H:%M:%S", time.localtime(start))
+            end_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(end))
+            LOG.info(f'{start_time} {end_time}')
+            start = fault.start
+            end = fault.end
+            values.clear()
+            values.extend(fault.values)
+        else:
+            values.extend(fault.values)
+            end = max(end, fault.end)
+    new_faults.append(Fault(start, end, values))
+    file = os.path.join(SAVE_PATH, f'{table_name.value}_range.json')
+    with open(file, 'w') as f:
+        f.write(json.dumps(new_faults, indent=4, cls=FaultEncoder))
+    return new_faults
+
+
+def fill_values(values):
+    if len(values) <= 1:
+        LOG.debug(f'len of values = {len(values)}')
+        return []
+    arr = []
+    for value in values:
+        arr.append(value[1])
+    arr = np.asarray(arr)
+    mean = arr.mean()
+    std = arr.std()
+    if std == 0:
+        LOG.debug("std is 0")
+        arr = arr + np.random.normal(0, 0.1, len(arr))
+        mean = arr.mean()
+        std = arr.std()
+
+    new_values = [(value[0], (value[1] - mean) / std) for value in values]
+    return new_values
+
+
+def build_seq_by_faulu_range(values: [], fault_range: []):
+    ans = []
+    if not fault_range:
+        ans.append(fill_values(values))
+        return ans;
+
+    for i in range(len(fault_range) + 1):
+        if i == 0:
+            end = fault_range[0].start
+            new_values = []
+            for value in values:
+                if value[0] < end:
+                    new_values.append(value)
+            ans.append(fill_values(values=new_values))
+        elif i == len(fault_range):
+            start = fault_range[-1].end
+            new_values = []
+            for value in values:
+                if value[0] > start:
+                    new_values.append(value)
+            ans.append(fill_values(values=new_values))
+        else:
+            start = fault_range[i - 1].end
+            end = fault_range[i].start
+            new_values = []
+            for value in values:
+                if start < value[0] < end:
+                    new_values.append(value)
+            ans.append(fill_values(values=new_values))
+
+    return ans
+
+
+def build_train_data_monitor(table_name: AiOpsEnum, fault_range):
+    metrics_sql = f"select distinct kpi_name from {table_name.value}"
+    metrics = select_from_pg(metrics_sql)
+    dct = {}
+    for metric in metrics:
+        metric = metric[0]
+        cmdb_ids_sql = f"select distinct cmdb_id from {table_name.value} where kpi_name = '{metric}'"
+        cmdb_ids = select_from_pg(cmdb_ids_sql)
+        for cmdb_id in cmdb_ids:
+            if cmdb_id[0] in cmdb_id_back_list:
+                continue
+            cmdb_id = cmdb_id[0]
+            device_sql = f"select distinct device from {table_name.value} where kpi_name = '{metric}' and cmdb_id = '{cmdb_id}'"
+            devices = select_from_pg(device_sql)
+            for device in devices:
+                device = device[0]
+                values_sql = f"select timestamp, value from {table_name.value} where kpi_name = '{metric}' and cmdb_id = '{cmdb_id}' and device = '{device}' order by timestamp"
+                values = select_from_pg(values_sql)
+                k = f'{table_name.value}_{metric}_{cmdb_id}_{device}'
+                v = build_seq_by_faulu_range(values=values, fault_range=fault_range)
+                dct[k] = v
+    file = os.path.join(SAVE_PATH, 'before_vec',
+                        f'{table_name.value}.before_vec')
+    with open(file, 'w') as f:
+        f.write(json.dumps(dct, indent=4))
+
+
+def build_train_data_tc(table_name: AiOpsEnum, fault_range):
+    tran_code_sql = f"select distinct tran_code from {table_name.value}"
+    tran_codes = select_from_pg(tran_code_sql)
+    dct = {}
+    for tran_code in tran_codes:
+        tran_code = tran_code[0]
+        for metric in tc_metrics:
+            values_sql = f"select timestamp, {metric} from {table_name.value} where tran_code = '{tran_code}'"
+            values = select_from_pg(values_sql)
+            k = f'{table_name.value}_{metric}_{tran_code}'
+            v = build_seq_by_faulu_range(
+                    values=values, fault_range=fault_range)
+            dct[k] = v
+    file = os.path.join(SAVE_PATH, 'before_vec',
+                        f'{table_name.value}.before_vec')
+    with open(file, 'w') as f:
+        f.write(json.dumps(dct, indent=4))
+
+
+def build_train_data():
+    fault_range = find_fault(AiOpsEnum.T_FAULT_TC)
+    new_fault_range = find_fault(AiOpsEnum.T_NEW_FAULT_TC)
+    pool = Pool(8)
+    pool.apply_async(func=build_train_data_monitor, args=(AiOpsEnum.T_NO_FAULT_MONITOR,[]))
+    pool.apply_async(func=build_train_data_tc, args=(AiOpsEnum.T_NO_FAULT_TC, []))
+    pool.apply_async(func=build_train_data_monitor, args=(AiOpsEnum.T_FAULT_MONITOR, fault_range))
+    pool.apply_async(func=build_train_data_tc, args=(AiOpsEnum.T_FAULT_TC, fault_range))
+    pool.apply_async(func=build_train_data_monitor, args=(AiOpsEnum.T_NEW_FAULT_MONITOR, new_fault_range))
+    pool.apply_async(func=build_train_data_tc, args=(AiOpsEnum.T_NEW_FAULT_TC, new_fault_range))
+    pool.close()
+    pool.join()
+    LOG.success("build train data done")
+
+
+def build_test_seq(values, fault_range):
+    ans = []
+    def is_fault(ts):
+        for fault in fault_range:
+            if fault.start <= ts <= fault.end:
+                return True
+        return False
+    
+    for fault in fault_range:
+        fault_values = []
+        start = fault.start
+        end = fault.end
+        for value in values:
+            if start<= value[0] <= end:
+                fault_values.append(value)
+        seq = []
+        for value in values:
+            if value[0] < start and not is_fault(value[0]):
+                seq.append(value)
+        if len(seq) > seq_len:
+            seq = seq[len(seq) - seq_len:]
+        LOG.info(f'seq_len={len(seq)} fault_values={len(fault_values)}')
+        seq = fill_values(seq)
+        ans.append([seq, fault_values])
+
+    return ans;
+
+def build_test_data_monitor(table_name: AiOpsEnum, fault_range):
+    metrics_sql = f"select distinct kpi_name from {table_name.value}"
+    metrics = select_from_pg(metrics_sql)
+    dct = {}
+    for metric in metrics:
+        metric = metric[0]
+        cmdb_ids_sql = f"select distinct cmdb_id from {table_name.value} where kpi_name = '{metric}'"
+        cmdb_ids = select_from_pg(cmdb_ids_sql)
+        for cmdb_id in cmdb_ids:
+            if cmdb_id[0] in cmdb_id_back_list:
+                continue
+            cmdb_id = cmdb_id[0]
+            device_sql = f"select distinct device from {table_name.value} where kpi_name = '{metric}' and cmdb_id = '{cmdb_id}'"
+            devices = select_from_pg(device_sql)
+            for device in devices:
+                device = device[0]
+                values_sql = f"select timestamp, value from {table_name.value} where kpi_name = '{metric}' and cmdb_id = '{cmdb_id}' and device = '{device}' order by timestamp"
+                values = select_from_pg(values_sql)
+                LOG.info(f'{metric} {cmdb_id} {device}')
+                if metric == 'system.tcp.time_wait' and cmdb_id == 'Weblogic_12' and device == 'unk':
+                    pass
+                
+                k = f'{table_name.value}_{metric}_{cmdb_id}_{device}'
+                v = build_test_seq(values=values, fault_range=fault_range)
+                LOG.info(f'faults={len(fault_range)} seqs={len(v)}')
+                dct[k] = v
+    file = os.path.join(SAVE_PATH, 'before_vec', f'test_{table_name.value}.before_vec')
+    with open(file, 'w') as f:
+        f.write(json.dumps(dct, indent=4))
+
+
+def build_test_data_tc(table_name: AiOpsEnum, fault_range):
+    tran_code_sql = f"select distinct tran_code from {table_name.value}"
+    tran_codes = select_from_pg(tran_code_sql)
+    dct = {}
+    for tran_code in tran_codes:
+        tran_code = tran_code[0]
+        for metric in tc_metrics:
+            values_sql = f"select timestamp, {metric} from {table_name.value} where tran_code = '{tran_code}'"
+            values = select_from_pg(values_sql)
+            k = f'{table_name.value}_{metric}_{tran_code}'
+            v = build_test_seq(values=values, fault_range=fault_range)
+            dct[k] = v
+    file = os.path.join(SAVE_PATH, 'before_vec',
+                        f'test_{table_name.value}.before_vec')
+    with open(file, 'w') as f:
+        f.write(json.dumps(dct, indent=4))
+
+
+def build_test_data():
+    fault_range = find_fault(AiOpsEnum.T_FAULT_TC)
+    new_fault_range = find_fault(AiOpsEnum.T_NEW_FAULT_TC)
+
+    pool = Pool(5)
+    pool.apply_async(func=build_test_data_monitor, args=(AiOpsEnum.T_FAULT_MONITOR, fault_range))
+    pool.apply_async(func=build_test_data_tc, args=(AiOpsEnum.T_FAULT_TC, fault_range))
+    pool.apply_async(func=build_test_data_monitor, args=(AiOpsEnum.T_NEW_FAULT_MONITOR, new_fault_range))
+    pool.apply_async(func=build_test_data_tc, args=(AiOpsEnum.T_NEW_FAULT_TC, new_fault_range))
+    pool.close()
+    pool.join()
+    LOG.success("build test data done")
+
 
 if __name__ == '__main__':
-    write_mysql_multi_process()
+    #build_train_data()
+    build_test_data()
