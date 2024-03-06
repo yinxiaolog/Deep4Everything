@@ -5,6 +5,8 @@ import json
 import datetime
 import time
 import sys
+import pickle
+import joblib
 from tqdm import tqdm
 from enum import Enum
 from multiprocessing import Pool
@@ -78,10 +80,9 @@ tc_metrics = [
     'apdex'
 ]
 
-# 序列长度为1h
 seq_len = 256
 window = 5 * 60
-dim = 512
+dim = 32 + 1
 
 
 class DataPoint:
@@ -724,7 +725,7 @@ def build_seq_by_faulu_range(values: [], fault_range: []):
     ans = []
     if not fault_range:
         ans.append(fill_values(values))
-        return ans;
+        return ans
 
     for i in range(len(fault_range) + 1):
         if i == 0:
@@ -772,7 +773,8 @@ def build_train_data_monitor(table_name: AiOpsEnum, fault_range):
                 values_sql = f"select timestamp, value from {table_name.value} where kpi_name = '{metric}' and cmdb_id = '{cmdb_id}' and device = '{device}' order by timestamp"
                 values = select_from_pg(values_sql)
                 k = f'{table_name.value}_{metric}_{cmdb_id}_{device}'
-                v = build_seq_by_faulu_range(values=values, fault_range=fault_range)
+                v = build_seq_by_faulu_range(
+                    values=values, fault_range=fault_range)
                 dct[k] = v
     file = os.path.join(SAVE_PATH, 'before_vec',
                         f'{table_name.value}.before_vec')
@@ -791,7 +793,7 @@ def build_train_data_tc(table_name: AiOpsEnum, fault_range):
             values = select_from_pg(values_sql)
             k = f'{table_name.value}_{metric}_{tran_code}'
             v = build_seq_by_faulu_range(
-                    values=values, fault_range=fault_range)
+                values=values, fault_range=fault_range)
             dct[k] = v
     file = os.path.join(SAVE_PATH, 'before_vec',
                         f'{table_name.value}.before_vec')
@@ -803,12 +805,18 @@ def build_train_data():
     fault_range = find_fault(AiOpsEnum.T_FAULT_TC)
     new_fault_range = find_fault(AiOpsEnum.T_NEW_FAULT_TC)
     pool = Pool(8)
-    pool.apply_async(func=build_train_data_monitor, args=(AiOpsEnum.T_NO_FAULT_MONITOR,[]))
-    pool.apply_async(func=build_train_data_tc, args=(AiOpsEnum.T_NO_FAULT_TC, []))
-    pool.apply_async(func=build_train_data_monitor, args=(AiOpsEnum.T_FAULT_MONITOR, fault_range))
-    pool.apply_async(func=build_train_data_tc, args=(AiOpsEnum.T_FAULT_TC, fault_range))
-    pool.apply_async(func=build_train_data_monitor, args=(AiOpsEnum.T_NEW_FAULT_MONITOR, new_fault_range))
-    pool.apply_async(func=build_train_data_tc, args=(AiOpsEnum.T_NEW_FAULT_TC, new_fault_range))
+    pool.apply_async(func=build_train_data_monitor,
+                     args=(AiOpsEnum.T_NO_FAULT_MONITOR, []))
+    pool.apply_async(func=build_train_data_tc,
+                     args=(AiOpsEnum.T_NO_FAULT_TC, []))
+    pool.apply_async(func=build_train_data_monitor, args=(
+        AiOpsEnum.T_FAULT_MONITOR, fault_range))
+    pool.apply_async(func=build_train_data_tc, args=(
+        AiOpsEnum.T_FAULT_TC, fault_range))
+    pool.apply_async(func=build_train_data_monitor, args=(
+        AiOpsEnum.T_NEW_FAULT_MONITOR, new_fault_range))
+    pool.apply_async(func=build_train_data_tc, args=(
+        AiOpsEnum.T_NEW_FAULT_TC, new_fault_range))
     pool.close()
     pool.join()
     LOG.success("build train data done")
@@ -816,18 +824,19 @@ def build_train_data():
 
 def build_test_seq(values, fault_range):
     ans = []
+
     def is_fault(ts):
         for fault in fault_range:
             if fault.start <= ts <= fault.end:
                 return True
         return False
-    
+
     for fault in fault_range:
         fault_values = []
         start = fault.start
         end = fault.end
         for value in values:
-            if start<= value[0] <= end:
+            if start <= value[0] <= end:
                 fault_values.append(value)
         seq = []
         for value in values:
@@ -839,7 +848,8 @@ def build_test_seq(values, fault_range):
         seq = fill_values(seq)
         ans.append([seq, fault_values])
 
-    return ans;
+    return ans
+
 
 def build_test_data_monitor(table_name: AiOpsEnum, fault_range):
     metrics_sql = f"select distinct kpi_name from {table_name.value}"
@@ -862,12 +872,13 @@ def build_test_data_monitor(table_name: AiOpsEnum, fault_range):
                 LOG.info(f'{metric} {cmdb_id} {device}')
                 if metric == 'system.tcp.time_wait' and cmdb_id == 'Weblogic_12' and device == 'unk':
                     pass
-                
+
                 k = f'{table_name.value}_{metric}_{cmdb_id}_{device}'
                 v = build_test_seq(values=values, fault_range=fault_range)
                 LOG.info(f'faults={len(fault_range)} seqs={len(v)}')
                 dct[k] = v
-    file = os.path.join(SAVE_PATH, 'before_vec', f'test_{table_name.value}.before_vec')
+    file = os.path.join(SAVE_PATH, 'before_vec',
+                        f'test_{table_name.value}.before_vec')
     with open(file, 'w') as f:
         f.write(json.dumps(dct, indent=4))
 
@@ -895,15 +906,116 @@ def build_test_data():
     new_fault_range = find_fault(AiOpsEnum.T_NEW_FAULT_TC)
 
     pool = Pool(5)
-    pool.apply_async(func=build_test_data_monitor, args=(AiOpsEnum.T_FAULT_MONITOR, fault_range))
-    pool.apply_async(func=build_test_data_tc, args=(AiOpsEnum.T_FAULT_TC, fault_range))
-    pool.apply_async(func=build_test_data_monitor, args=(AiOpsEnum.T_NEW_FAULT_MONITOR, new_fault_range))
-    pool.apply_async(func=build_test_data_tc, args=(AiOpsEnum.T_NEW_FAULT_TC, new_fault_range))
+    pool.apply_async(func=build_test_data_monitor, args=(
+        AiOpsEnum.T_FAULT_MONITOR, fault_range))
+    pool.apply_async(func=build_test_data_tc, args=(
+        AiOpsEnum.T_FAULT_TC, fault_range))
+    pool.apply_async(func=build_test_data_monitor, args=(
+        AiOpsEnum.T_NEW_FAULT_MONITOR, new_fault_range))
+    pool.apply_async(func=build_test_data_tc, args=(
+        AiOpsEnum.T_NEW_FAULT_TC, new_fault_range))
     pool.close()
     pool.join()
     LOG.success("build test data done")
 
 
+def dump_dataset(data, file):
+    with open(file, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=4)
+    print(f'process {os.getpgid()} done')
+
+
+def build_train_dataset():
+    train_path = os.path.join(SAVE_PATH, 'train')
+    files = os.listdir(train_path)
+    dataset = []
+    for file in files:
+        path = os.path.join(train_path, file)
+        with open(path, 'r') as f:
+            dct = json.loads(f.read())
+            for _, v in dct.items():
+                for seq in v:
+                    if len(seq) < dim:
+                        continue
+                    new_seq = []
+                    for i in range(dim, len(seq)):
+                        sub_seq = seq[i - dim: i]
+                        sub_v = [ts[1] for ts in sub_seq]
+                        new_seq.append(sub_v)
+                    for j in range(0, len(new_seq), seq_len):
+                        matrix = [new_seq[k] for k in range(
+                            j, min(len(new_seq), j + seq_len))]
+                        dataset.append(matrix)
+    LOG.info(f'dataset size={len(dataset)}')
+    dataset = dataset[0: 10000]
+    return dataset
+    # 1462944
+    
+    path = os.path.join(SAVE_PATH, 'train_dataset')
+    os.makedirs(path, exist_ok=True)
+    step = 100
+    j = 0
+
+    pool = Pool(50)
+    for i in range(0, len(dataset), step):
+        sub = dataset[i: i + step]
+        file = os.path.join(path, f'train_dataset_{j:06d}.json')
+        pool.apply_async(func=dump_dataset, args=(sub, file))
+        j += 1
+    
+    pool.close()
+    pool.join()
+    LOG.success('dump all done')
+    return dataset
+
+
+def build_test_dataset():
+    test_path = os.path.join(SAVE_PATH, 'test')
+    files = os.listdir(test_path)
+    dataset = []
+    for file in files:
+        path = os.path.join(test_path, file)
+        with open(path, 'r') as f:
+            dct = json.loads(f.read())
+            for k, v in dct.items():
+                for seq in v:
+                    normal = seq[0]
+                    fault = seq[1]
+                    if len(normal) <= 0:
+                        continue
+                    new_seq = []
+                    for i in range(dim - 1, len(normal)):
+                        sub_seq = normal[i - dim + 1: i]
+                        sub_v = [ts[1] for ts in sub_seq]
+                        new_seq.append(sub_v)
+                    for j in range(0, len(new_seq), seq_len):
+                        x = [new_seq[k] for k in range(j, min(len(new_seq), j + seq_len))]
+                        fault = fill_values(fault)
+                        if len(fault) > 0:
+                            y = [ts[1] for ts in fault]
+                            fault_name = f'{k}_{fault[0][0]}_{fault[-1][0]}'
+                            dataset.append([fault_name, x, y])
+    LOG.info(f'dataset size={len(dataset)}')
+    # 1462944
+    
+    # path = os.path.join(SAVE_PATH, 'test_dataset')
+    # os.makedirs(path, exist_ok=True)
+    # step = 100
+    # j = 0
+
+    # pool = Pool(50)
+    # for i in range(0, len(dataset), step):
+    #     sub = dataset[i: i + step]
+    #     file = os.path.join(path, f'train_dataset_{j:06d}.json')
+    #     pool.apply_async(func=dump_dataset, args=(sub, file))
+    #     j += 1
+    
+    # pool.close()
+    # pool.join()
+    # LOG.success('dump all done')
+    return dataset
+
+
 if __name__ == '__main__':
-    #build_train_data()
-    build_test_data()
+    #build_train_dataset()
+    build_test_dataset()
