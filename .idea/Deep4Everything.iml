@@ -2,10 +2,11 @@
 <module type="PYTHON_MODULE" version="4">
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$">
-      <excludeFolder url="file://$MODULE_DIR$/d2l/data" />
       <excludeFolder url="file://$MODULE_DIR$/data/FashionMNIST" />
+      <excludeFolder url="file://$MODULE_DIR$/d2l_ai/data" />
+      <excludeFolder url="file://$MODULE_DIR$/.idea/dataSources" />
     </content>
-    <orderEntry type="jdk" jdkName="deepLearning" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="Deep4Everything" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
 </module>
