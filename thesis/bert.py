@@ -27,8 +27,7 @@ dict_path = '/home/yinxiaoln/.cache/modelscope/hub/tiansz/bert-base-chinese/voca
 class Config():
     epochs = 100
     batch_size = 64
-    lr = 2e-5
-    step = 100
+    lr = 1e-5
 
     DEVICE = ['cuda:0', 'cuda:1']
     device = torch.device(DEVICE[0])
@@ -46,6 +45,7 @@ CONN = {0: '', 1: 'and', 2: 'or'}
 
 loss_func = nn.CrossEntropyLoss(reduction='sum')
 optim = None
+scheduler = None
 device = Config.device
 
 
@@ -148,7 +148,7 @@ class TrainDataset(Dataset):
                             start = i
                             end = i + j - 2
                         break
-                
+
             log.debug(tokenizer.convert_ids_to_tokens(x[start: end + 1]))
             cond_cols[start: end + 1] = cond[0]
             cond_ops[start: end + 1] = cond[1]
@@ -160,7 +160,6 @@ class TrainDataset(Dataset):
             self.max_len - len(x_mask), dtype=torch.int32)], dim=0)
         sel = torch.tensor(sel, dtype=torch.long)
         cond_conn_op = torch.tensor(cond_conn_op, dtype=torch.long)
-        question_len = len(d['question'])
         return x, x_mask, question_token_len, cls_headers, sel, cond_conn_op, cond_cols, cond_ops, d
 
     def __len__(self):
@@ -236,22 +235,22 @@ def train_step(model: nn.Module, x, x_mask, question_len, cls_headers, y_agg, y_
     optim.zero_grad()
     y_hat_agg, y_hat_cond_conn_op, y_hat_cond_cols, y_hat_cond_ops = model(
         x, x_mask, cls_headers, question_len)
-    #计算agg的loss
+    # 计算agg的loss
     y_agg = y_agg.reshape(-1).to(device)
     loss_agg = loss_func(y_hat_agg, y_agg)
-    #计算条件连接符的loss
+    # 计算条件连接符的loss
     y_cond_conn_op = y_cond_conn_op.reshape(-1).to(device)
     loss_cond_conn_op = loss_func(y_hat_cond_conn_op, y_cond_conn_op)
-    #计算条件值的loss
+    # 计算条件值的loss
     y_cond_cols = y_cond_cols.reshape(-1).to(device)
     y_hat_cond_cols = y_hat_cond_cols.reshape(-1, y_hat_cond_cols.shape[1])
-    #loss_cond_cols = loss_func(y_hat_cond_cols, y_cond_cols)
-    #计算条件运算符的loss
+    # loss_cond_cols = loss_func(y_hat_cond_cols, y_cond_cols)
+    # 计算条件运算符的loss
     y_cond_ops = y_cond_ops.reshape(-1).to(device)
     y_hat_cond_ops = y_hat_cond_ops.reshape(-1, y_hat_cond_ops.shape[1])
     loss_cond_ops = loss_func(y_hat_cond_ops, y_cond_ops)
 
-    total_loss = loss_agg + loss_cond_conn_op + loss_cond_ops#+ loss_cond_cols + loss_cond_ops
+    total_loss = loss_agg + loss_cond_conn_op + loss_cond_ops  # + loss_cond_cols + loss_cond_ops
     total_loss.backward()
     optim.step()
     return total_loss.item()
@@ -261,23 +260,25 @@ def train(model, train_data_loader, test_data_loader):
     model.to(device)
     for epoch in range(1, Config.epochs + 1):
         loss = 0
+        # x, x_mask, question_token_len, cls_headers, sel, cond_conn_op, cond_cols, cond_ops, d
         for (x, x_mask, question_len, cls_headers, sel, cond_conn_op, cond_cols, cond_ops, _) in train_data_loader:
             loss_step = train_step(model, x, x_mask, question_len, cls_headers,
                                    sel, cond_conn_op, cond_cols, cond_ops)
             loss += loss_step
-        if epoch == 5:
+        if epoch == 2:
             pass
         train_acc = valid(model, train_data_loader)
         test_acc = valid(model, test_data_loader)
         log.info(f'epoch={epoch}, loss={loss / len(train_data_loader.dataset)}')
         log.info(f'train_acc={train_acc:.4%}, test_acc={test_acc:.4%}')
+        #scheduler.step()
 
 
 def valid_one_sql(y_agg, y_hat_agg,
                   y_cond_conn_op, y_hat_cond_conn_op,
                   y_cond_cols, y_hat_cond_cols,
-                  y_cond_ops, y_hat_cond_ops, raw_data=None):
-    assert y_hat_agg.shape[1] == 7
+                  y_cond_ops, y_hat_cond_ops,
+                  raw_data=None):
     y_hat_agg = torch.argmax(y_hat_agg, dim=1)
     y_hat_cond_conn_op = torch.argmax(y_hat_cond_conn_op, dim=1)
     y_hat_cond_cols = torch.argmax(y_hat_cond_cols, dim=1)
@@ -286,7 +287,7 @@ def valid_one_sql(y_agg, y_hat_agg,
     ok_agg = y_agg.equal(y_hat_agg)
     ok_cond_conn_op = y_cond_conn_op.equal(y_hat_cond_conn_op)
     ok_cond_cols = True
-    ok_cond_ops = y_hat_cond_ops.equal(y_cond_ops)
+    ok_cond_ops = y_cond_ops.equal(y_hat_cond_ops)
     # for i in range(len(y_cond_cols)):
     #     if y_cond_cols[i] < len(raw_data['table']['header']) and y_cond_cols[i] != y_hat_cond_cols[i]:
     #         ok_cond_cols = False
@@ -296,7 +297,10 @@ def valid_one_sql(y_agg, y_hat_agg,
     #         ok_cond_ops = False
     # if ok_agg and ok_cond_conn_op:
     #     log.info(f'true')
-    #return True
+    # return True
+    log.info(y_agg)
+    log.info(y_hat_agg)
+    log.info(f'ok_agg={ok_agg}, ok_cond_conn_op={ok_cond_conn_op}, ok_cond_ops={ok_cond_ops}')
     return ok_agg and ok_cond_conn_op and ok_cond_ops#or ok_cond_cols or ok_cond_ops
 
 
@@ -305,7 +309,8 @@ def valid(model, dataloader):
     model.eval()
     right = 0
     for (x, x_mask, question_len, cls_headers, agg, cond_conn_op, cond_cols, cond_ops, data) in dataloader:
-        y_hat_agg, y_hat_cond_conn_op, y_hat_cond_cols, y_hat_cond_ops = model(x, x_mask, cls_headers, question_len)
+        y_hat_agg, y_hat_cond_conn_op, y_hat_cond_cols, y_hat_cond_ops = model(
+            x, x_mask, cls_headers, question_len)
         agg = agg.reshape(-1).to(device)
         cond_conn_op = cond_conn_op.reshape(-1).to(device)
         y_hat_cond_conn_op = y_hat_cond_conn_op.reshape(-1, y_hat_cond_conn_op.shape[1])
@@ -317,15 +322,17 @@ def valid(model, dataloader):
         idx_cond_cols = 0
         idx_cond_ops = 0
         for i in range(len(x)):
-            res = valid_one_sql(agg[idx_agg: idx_agg + len(cls_headers[i])],
-                             y_hat_agg[idx_agg: idx_agg + len(cls_headers[i]), :],
-                             cond_conn_op[i: i + 1],
-                             y_hat_cond_conn_op[i: i + 1, :],
-                             cond_cols[idx_cond_cols: idx_cond_cols + question_len[i]],
-                             y_hat_cond_cols[idx_cond_cols + 1: idx_cond_cols + question_len[i] + 1, :],
-                             cond_ops[idx_cond_ops + 1: idx_cond_ops + question_len[i] - 1],
-                             y_hat_cond_ops[idx_cond_ops + 1: idx_cond_ops + question_len[i] - 1, :],
-                             data[i])
+            res = valid_one_sql(
+                agg[idx_agg: idx_agg + len(cls_headers[i])],
+                y_hat_agg[idx_agg: idx_agg + len(cls_headers[i]), :],
+                cond_conn_op[i: i + 1],
+                y_hat_cond_conn_op[i: i + 1, :],
+                cond_cols[idx_cond_cols: idx_cond_cols + question_len[i]],
+                y_hat_cond_cols[idx_cond_cols + 1: idx_cond_cols + question_len[i] + 1, :],
+                cond_ops[idx_cond_ops + 1: idx_cond_ops + question_len[i] - 1],
+                y_hat_cond_ops[idx_cond_ops + 1: idx_cond_ops + question_len[i] - 1, :],
+                data[i]
+            )
             if res:
                 right += 1
             idx_agg += len(cls_headers[i])
@@ -363,8 +370,11 @@ def main():
     model = Model(768, len(AGG), len(CONN), Config.max_cols, len(OP))
     # model = nn.DataParallel(model, device_ids=devices)
     global optim
-    optim = torch.optim.AdamW(model.parameters(), lr=Config.lr)
+    global scheduler
+    optim = torch.optim.Adam(model.parameters(), lr=Config.lr)
+    #scheduler = torch.optim.lr_scheduler.MultiStepLR(optim, milestones=[2, 5, 8], gamma=0.1)
     train(model, train_dataloader, val_dataloader)
+
 
 # seq = '我是Chinese，账号'
 # tokens = tokenizer.tokenize(seq)
