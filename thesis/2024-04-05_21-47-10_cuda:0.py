@@ -1,6 +1,5 @@
 import sys
 import json
-import re
 import numpy as np
 from modelscope import snapshot_download
 from transformers import BertTokenizer, BertModel
@@ -11,9 +10,8 @@ from loguru import logger as log
 import torch
 import torch.nn.functional as F
 from torch import nn
-from torch.optim.lr_scheduler import LambdaLR
+
 from tqdm import tqdm
-import codecs
 
 log.remove()
 log.add(sys.stderr, level='INFO')
@@ -34,7 +32,7 @@ class Config():
     lr = 1e-5
 
     DEVICE = ['cuda:0', 'cuda:1']
-    device = torch.device(DEVICE[1])
+    device = torch.device(DEVICE[0])
     devices = [torch.device(d) for d in DEVICE]
 
     max_len_bert = 512
@@ -44,7 +42,6 @@ class Config():
 
 
 OP = {0: '>', 1: '<', 2: '==', 3: '!=', 4: '<=', 5: '>=', 6: 'None'}
-#OP = {0: '>', 1: '<', 2: '==', 3: '!=', 4: 'None'}
 AGG = {0: '', 1: 'AVG', 2: 'MAX', 3: 'MIN', 4: 'COUNT', 5: 'SUM', 6: 'None'}
 CONN = {0: '', 1: 'and', 2: 'or'}
 
@@ -52,28 +49,6 @@ loss_func = nn.CrossEntropyLoss(reduction='mean')
 optim = None
 scheduler = None
 device = Config.device
-
-
-def read_data1(data_file, table_file):
-    data, tables = [], {}
-    with open(data_file, 'r', encoding='utf-8') as f:
-        for l in f:
-            data.append(json.loads(l))
-    with open(table_file, 'r', encoding='utf-8') as f:
-        for l in f:
-            l = json.loads(l)
-            d = {}
-            d['headers'] = l['header']
-            d['header2id'] = {j: i for i, j in enumerate(d['headers'])}
-            d['content'] = {}
-            d['all_values'] = set()
-            rows = np.array(l['rows'])
-            for i, h in enumerate(d['headers']):
-                d['content'][h] = set(rows[:, i])
-                d['all_values'].update(d['content'][h])
-            d['all_values'] = set([i for i in d['all_values'] if hasattr(i, '__len__')])
-            tables[l['id']] = d
-    return data, tables
 
 
 def read_data(data_file, table_file):
@@ -121,25 +96,6 @@ def seq_padding(input, padding=0, max_len=None):
             x = torch.cat([x, torch.tensor([padding] * (max_len - (len(x))), dtype=torch.long)])
         tensors.append(x)
     return torch.stack(tensors)
-
-
-def get_linear_schedule_with_warmup(optimizer, num_warmup_steps, num_training_steps, last_epoch=-1):
-    """带warmup的schedule, 源自transformers包optimization.py中
-    
-    :param num_warmup_steps: 需要warmup的步数, 一般为 num_training_steps * warmup_proportion(warmup的比例, 建议0.05-0.15)
-    :param num_training_steps: 总的训练步数, 一般为 train_batches * num_epoch
-    """
-
-    def lr_lambda(current_step: int):
-        if current_step < num_warmup_steps:
-            return float(current_step) / float(max(1, num_warmup_steps))
-        return max(0.0, float(num_training_steps - current_step) / float(max(1, num_training_steps - num_warmup_steps)))
-
-    return LambdaLR(optimizer, lr_lambda, last_epoch)
-
-datadir = '/data/yinxiaoln/datasets/TableQA'
-valid_data, valid_table = read_data1(f'{datadir}/val/val.json', f'{datadir}/val/val.tables.json')
-test_data, test_table = read_data1(f'{datadir}/test/test.json', f'{datadir}/test/test.tables.json')
 
 
 class TrainDataset(Dataset):
@@ -245,73 +201,72 @@ class Model(nn.Module):
         super().__init__()
         self.bert = bert
         self.hidden_size = hidden_size
-        self.conn = nn.Linear(hidden_size, 3)
-        self.agg = nn.Linear(hidden_size, len(AGG))
-        self.op = nn.Linear(hidden_size, len(OP))
-        self.dense1 = nn.Linear(hidden_size, 256)
-        self.dense2 = nn.Linear(hidden_size, 256)
-        self.dense3 = nn.Linear(256, 1)
+        self.agg_fnn = nn.Linear(hidden_size, agg_out)
+        self.cond_conn_op_fnn = nn.Linear(hidden_size, cond_conn_op_out)
+        self.cond_ops_fnn = nn.Linear(hidden_size, cond_ops_out)
+        self.question_fnn = nn.Linear(hidden_size, 256)
+        self.headers_fnn = nn.Linear(hidden_size, 256)
+        self.similar_fnn = nn.Linear(256, 1)
 
-    def forward(self, x1, attention_mask, h, hm):
-        x1 = x1.to(device)
+    def forward(self, x, attention_mask, cls_headers, cls_headers_mask):
+        x = x.to(device)
         attention_mask = attention_mask.to(device)
-        h = h.to(device)
-        hm = hm.to(device)
-        x = self.bert(x1, attention_mask)
-        x = x['last_hidden_state']
+        cls_headers = cls_headers.to(device)
+        cls_headers_mask = cls_headers_mask.to(device)
+        bert_out = self.bert(input_ids=x, attention_mask=attention_mask)
+        last_hidden_state = bert_out['last_hidden_state']
+        pooler_output = bert_out['pooler_output']
 
-        # cls判断条件连接符 {0:"", 1:"and", 2:"or"}
-        x4conn = x[:, 0]  # [cls位]
-        pconn = self.conn(x4conn)  # [btz, num_cond_conn_op]
+        headers_encode = torch.gather(
+            last_hidden_state,
+            dim=1,
+            index=cls_headers.unsqueeze(-1).expand(-1, -1, self.hidden_size))
+        y_hat_cond_conn_op = self.cond_conn_op_fnn(pooler_output)
+        y_hat_agg = self.agg_fnn(headers_encode)
+        y_hat_cond_ops = self.cond_ops_fnn(last_hidden_state)
 
-        # 列的cls位用来判断列名的agg和是否被select {0:"", 1:"AVG", 2:"MAX", 3:"MIN", 4:"COUNT", 5:"SUM", 6:"不被select"}
-        x4h = torch.gather(x, dim=1, index=h.unsqueeze(-1).expand(-1, -1, 768)
-                           )  # [btz, col_len, hdsz]
-        psel = self.agg(x4h)  # [btz, col_len, num_agg]
-
-        # 序列标注conds的值和运算符
-        pcop = self.op(x)  # [btz, seq_len, num_op]
-        x = x.unsqueeze(2)  # [btz, seq_len, 1, hdsz]
-        x4h = x4h.unsqueeze(1)  # [btz, 1, col_len, hdsz]
-
-        pcsel_1 = self.dense1(x)  # [btz, seq_len, 1, 256]
-        pcsel_2 = self.dense2(x4h)  # [btz, 1, col_len, 256]
-        pcsel = pcsel_1 + pcsel_2
-        pcsel = torch.tanh(pcsel)
-        pcsel = self.dense3(pcsel)  # [btz, seq_len, col_len, 1]
-        pcsel = pcsel[..., 0] - (1 - hm[:, None]) * 1e10  # [btz, seq_len, col_len]
-        return psel, pconn, pcop, pcsel
+        last_hidden_state = last_hidden_state.unsqueeze(2)
+        headers_encode = headers_encode.unsqueeze(1)
+        y_hat_cond_cols = self.question_fnn(last_hidden_state) + self.headers_fnn(headers_encode)
+        y_hat_cond_cols = torch.tanh(y_hat_cond_cols)
+        y_hat_cond_cols = self.similar_fnn(y_hat_cond_cols)
+        y_hat_cond_cols = y_hat_cond_cols[..., 0] - (1 - cls_headers_mask[:, None]) * 1e10
+        return y_hat_agg, y_hat_cond_conn_op, y_hat_cond_cols, y_hat_cond_ops
 
 
 def train_step(model: nn.Module, x, attention_mask, x_mask, cls_headers, cls_headers_mask, agg, cond_conn_op, cond_cols, cond_ops):
     model.train()
     optim.zero_grad()
-    psel, pconn, pcop, pcsel = model(
+    y_hat_agg, y_hat_cond_conn_op, y_hat_cond_cols, y_hat_cond_ops = model(
         x, attention_mask, cls_headers, cls_headers_mask)
-    sel_in, conn_in, csel_in, cop_in, xm, hm = agg, cond_conn_op, cond_cols, cond_ops, x_mask, cls_headers_mask
-    cm = torch.not_equal(cop_in, len(OP) - 1)
-    cm = cm.to(device)
-    sel_in = sel_in.to(device)
-    conn_in = conn_in.to(device)
-    csel_in = csel_in.to(device)
-    cop_in = cop_in.to(device)
-    xm = xm.to(device)
-    hm = hm.to(device)
-    batch_size = psel.shape[0]
-    psel_loss = F.cross_entropy(psel.view(-1, len(OP)), sel_in.view(-1),
-                                    reduction='none').reshape(batch_size, -1)
-    psel_loss = torch.sum(psel_loss * hm) / torch.sum(hm)
-    pconn_loss = F.cross_entropy(pconn, conn_in.view(-1))
-    pcop_loss = F.cross_entropy(pcop.view(-1, len(OP)), cop_in.view(-1),
-                                    reduction='none').reshape(batch_size, -1)
-    pcop_loss = torch.sum(pcop_loss * xm) / torch.sum(xm)
-    pcsel_loss = F.cross_entropy(
-        pcsel.view(-1, pcsel.shape[-1]), csel_in.view(-1), reduction='none').reshape(batch_size, -1)
-    pcsel_loss = torch.sum(pcsel_loss * xm * cm) / torch.sum(xm * cm)
-    loss = psel_loss + pconn_loss + pcop_loss + pcsel_loss
-    loss.backward()
+    cm = torch.not_equal(cond_ops, len(OP) - 1).to(device)
+    batch_size = len(x)
+    x = x.to(device)
+    cls_headers = cls_headers.to(device)
+    cls_headers_mask = cls_headers_mask.to(device)
+    x_mask = x_mask.to(device)
+    agg = agg.to(device)
+    cond_conn_op = cond_conn_op.to(device)
+    cond_cols = cond_cols.to(device)
+    cond_ops = cond_ops.to(device)
+    # 计算agg的loss
+    loss_agg = F.cross_entropy(y_hat_agg.view(-1, len(AGG)), agg.view(-1),
+                               reduction='none').reshape(batch_size, -1)
+    loss_agg = torch.sum(loss_agg * cls_headers_mask) / torch.sum(cls_headers_mask)
+    # 计算条件连接符的loss
+    loss_cond_conn_op = F.cross_entropy(y_hat_cond_conn_op, cond_conn_op.view(-1))
+    # 计算条件值的loss
+    loss_cond_cols = F.cross_entropy(y_hat_cond_cols.view(
+        -1, y_hat_cond_cols.shape[-1]), cond_cols.view(-1), reduction='none').reshape(batch_size, -1)
+    loss_cond_cols = torch.sum(loss_cond_cols * x_mask * cm) / torch.sum(x_mask * cm)
+    # 计算条件运算符的loss
+    loss_cond_ops = F.cross_entropy(y_hat_cond_ops.view(-1, len(OP)),
+                                    cond_ops.view(-1), reduction='none').reshape(batch_size, -1)
+    loss_cond_ops = torch.sum(loss_cond_ops * x_mask) / torch.sum(x_mask)
+    total_loss = loss_agg + loss_cond_conn_op + loss_cond_ops + loss_cond_cols
+    total_loss.backward()
     optim.step()
-    return loss.item()
+    return total_loss.item()
 
 
 def train(model, train_data_loader, test_data_loader):
@@ -319,15 +274,14 @@ def train(model, train_data_loader, test_data_loader):
     for epoch in range(1, Config.epochs + 1):
         loss = 0
         for x, attention_mask, x_mask, cls_headers, cls_headers_mask, agg, cond_conn_op, cond_cols, cond_ops in train_data_loader:
-            loss_step = train_step(model, x, attention_mask, x_mask, cls_headers, cls_headers_mask, agg, cond_conn_op, cond_cols, cond_ops)
+            loss_step = train_step(model, x, attention_mask, x_mask, cls_headers,
+                                   cls_headers_mask, agg, cond_conn_op, cond_cols, cond_ops)
             loss += loss_step
-        #train_acc = valid(model, train_data_loader)
-        #test_acc = valid(model, test_data_loader)
-        train_acc = 0
-        test_acc = evaluate(model, valid_data, valid_table)
+        train_acc = valid(model, train_data_loader)
+        test_acc = valid(model, test_data_loader)
         log.info(
             f'epoch={epoch}, loss={loss / len(train_data_loader.dataset)} train_acc={train_acc:.4%}, test_acc={test_acc:.4%}')
-        scheduler.step()
+
 
 def valid_one_sql(y_agg, y_hat_agg,
                   y_cond_conn_op, y_hat_cond_conn_op,
@@ -398,104 +352,6 @@ def valid(model, dataloader):
     return total / len(dataloader.dataset)
 
 
-@torch.no_grad
-def nl2sql(model, question, table):
-    """输入question和headers，转SQL
-    """
-    x1 = tokenizer.encode(question)
-    h = []
-    for i in table['headers']:
-        _x1 = tokenizer.encode(i)
-        h.append(len(x1))
-        x1.extend(_x1)
-    hm = [1] * len(h)
-    attm = [1] * len(x1)
-    psel, pconn, pcop, pcsel = model(
-        torch.tensor([x1], dtype=torch.long, device=device),
-        torch.tensor([attm], dtype=torch.long, device=device),
-        torch.tensor([h], dtype=torch.long, device=device),
-        torch.tensor([hm], dtype=torch.long, device=device))
-    pconn, psel, pcop, pcsel = pconn.cpu().numpy(), psel.cpu(
-    ).numpy(), pcop.cpu().numpy(), pcsel.cpu().numpy()
-    R = {'agg': [], 'sel': []}
-    for i, j in enumerate(psel[0].argmax(1)):
-        if j != len(AGG) - 1:  # num_agg-1类是不被select的意思
-            R['sel'].append(i)
-            R['agg'].append(int(j))
-    conds = []
-    v_op = -1
-    for i, j in enumerate(pcop[0, :len(question)+1].argmax(1)):
-        # 这里结合标注和分类来预测条件
-        if j != len(OP) - 1:
-            if v_op != j:
-                if v_op != -1:
-                    v_end = v_start + len(v_str)
-                    csel = pcsel[0][v_start: v_end].mean(0).argmax()
-                    conds.append((csel, v_op, v_str))
-                v_start = i
-                v_op = j
-                v_str = question[i - 1]
-            else:
-                v_str += question[i - 1]
-        elif v_op != -1:
-            v_end = v_start + len(v_str)
-            csel = pcsel[0][v_start: v_end].mean(0).argmax()
-            conds.append((csel, v_op, v_str))
-            v_op = -1
-    R['conds'] = set()
-    for i, j, k in conds:
-        if re.findall('[^\d\.]', k):
-            j = 2  # 非数字只能用等号
-        if j == 2:
-            if k not in table['all_values']:
-                # 等号的值必须在table出现过，否则找一个最相近的
-                k = most_similar(k, list(table['all_values']))
-            h = table['headers'][i]
-            # 然后检查值对应的列是否正确，如果不正确，直接修正列名
-            if k not in table['content'][h]:
-                for r, v in table['content'].items():
-                    if k in v:
-                        i = table['header2id'][r]
-                        break
-        R['conds'].add((int(i), int(j), str(k)))
-    R['conds'] = list(R['conds'])
-    if len(R['conds']) <= 1:  # 条件数少于等于1时，条件连接符直接为0
-        R['cond_conn_op'] = 0
-    else:
-        R['cond_conn_op'] = 1 + int(pconn[0, 1:].argmax())  # 不能是0
-    return R
-
-
-def is_equal(R1, R2):
-    """判断两个SQL字典是否全匹配
-    """
-    return (R1['cond_conn_op'] == R2['cond_conn_op']) &\
-        (set(zip(R1['sel'], R1['agg'])) == set(zip(R2['sel'], R2['agg']))) &\
-        (set([tuple(i) for i in R1['conds']]) == set([tuple(i) for i in R2['conds']]))
-
-
-def evaluate(model, data, tables):
-        right = 0.
-        pbar = tqdm()
-        F = open('evaluate_pred.json', 'w', encoding='utf-8')
-        for i, d in enumerate(data):
-            question = d['question']
-            table = tables[d['table_id']]
-            R = nl2sql(model, question, table)
-            right += float(is_equal(R, d['sql']))
-            pbar.update(1)
-            pbar.set_description('< acc: %.5f >' % (right / (i + 1)))
-            d['sql_pred'] = R
-            try:
-                s = json.dumps(d, ensure_ascii=False, indent=4)
-            except:
-                continue
-            F.write(s + '\n')
-        F.close()
-        pbar.close()
-        return right / len(data)
-
-
 def main():
     train_dataset = TrainDataset('/data/yinxiaoln/datasets/TableQA/train/train.json',
                                  '/data/yinxiaoln/datasets/TableQA/train/train.tables.json',
@@ -525,8 +381,7 @@ def main():
     # model = nn.DataParallel(model, device_ids=devices)
     global optim
     global scheduler
-    optim = torch.optim.AdamW(model.parameters(), lr=2e-5)
-    scheduler = get_linear_schedule_with_warmup(optim, len(train_dataloader), len(train_dataloader) * 15)
+    optim = torch.optim.AdamW(model.parameters(), lr=1e-5)
     train(model, train_dataloader, val_dataloader)
 
 

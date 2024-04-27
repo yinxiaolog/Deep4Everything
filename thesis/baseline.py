@@ -39,13 +39,13 @@ from transformers import BertTokenizer, BertModel
 from torch.optim.lr_scheduler import LambdaLR
 from transformers import BertTokenizer, BertModel
 
-batch_size = 64
+batch_size = 128
 maxlen = 160
 num_agg = 7 # agg_sql_dict = {0:"", 1:"AVG", 2:"MAX", 3:"MIN", 4:"COUNT", 5:"SUM", 6:"不被select"}
 num_op = 5 # {0:">", 1:"<", 2:"==", 3:"!=", 4:"不被select"}
 num_cond_conn_op = 3 # conn_sql_dict = {0:"", 1:"and", 2:"or"}
 learning_rate = 2.5e-5
-epochs = 15
+epochs = 20
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 config_path = '/home/yinxiaoln/.cache/modelscope/hub/tiansz/bert-base-chinese/config.json'
