@@ -1,6 +1,7 @@
 import json
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
+import torch.utils.cpp_extension
 
 device = 'cuda'
 
@@ -8,6 +9,8 @@ model_path = 'Qwen/Qwen1.5-14B-Chat'
 model = AutoModelForCausalLM.from_pretrained(
     model_path, torch_dtype='auto', device_map='auto')
 tokenizer = AutoTokenizer.from_pretrained(model_path)
+
+torch.utils.cpp_extension.CUDA_HOME
 
 
 def format_example(exam, include_answer=True, cot=False, add_prompt=''):
